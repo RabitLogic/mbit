@@ -1,0 +1,6 @@
+_build/
+.mooncakes/
+*.moon_db
+*.ast
+*.mi
+*.typechecked

@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/io",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/socket",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/debug",
+}
