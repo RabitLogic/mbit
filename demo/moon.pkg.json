@@ -1,0 +1,8 @@
+{
+  "import": [
+    { "path": "RabitLogic/mbit", "alias": "RabitLogic/mbit" },
+    "moonbitlang/async",
+    "moonbitlang/core/json"
+  ],
+  "is-main": true
+}

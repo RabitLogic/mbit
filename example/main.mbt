@@ -38,7 +38,7 @@ fn handle_hello_name(ctx : Context) {
 ///|
 /// GET /api/json — JSON response using H helper (like gin.H)
 fn handle_json(ctx : Context) {
-  ctx.json(200, Json::object(H([
+  ctx.json(200, Json::object(h([
     ("framework", Json::string("mbit")),
     ("version", Json::string("0.1.0")),
     ("language", Json::string("MoonBit")),
@@ -51,7 +51,7 @@ async fn handle_echo(ctx : Context) {
   let body = ctx.body_json()
   match body {
     Some(json) => ctx.json(200, json)
-    None => ctx.json(400, Json::object(H([
+    None => ctx.json(400, Json::object(h([
       ("error", Json::string("Invalid JSON")),
     ])))
   }
@@ -60,7 +60,7 @@ async fn handle_echo(ctx : Context) {
 ///|
 /// ANY /api/health — health check (matches all HTTP methods)
 fn handle_health(ctx : Context) {
-  ctx.json(200, Json::object(H([
+  ctx.json(200, Json::object(h([
     ("status", Json::string("ok")),
   ])))
 }
@@ -68,7 +68,7 @@ fn handle_health(ctx : Context) {
 ///|
 /// GET /api/protected — requires auth middleware
 fn handle_protected(ctx : Context) {
-  ctx.json(200, Json::object(H([
+  ctx.json(200, Json::object(h([
     ("message", Json::string("You are authenticated!")),
   ])))
 }
@@ -83,7 +83,7 @@ fn handle_files(ctx : Context) {
 ///|
 /// Custom 404 handler
 fn handle_404(ctx : Context) {
-  ctx.json(404, Json::object(H([
+  ctx.json(404, Json::object(h([
     ("error", Json::string("The page you requested was not found")),
     ("path", Json::string(ctx.path())),
   ])))
@@ -93,7 +93,7 @@ fn handle_404(ctx : Context) {
 /// Custom 405 handler
 fn handle_405(ctx : Context) {
   ctx.set_header("Allow", "GET, POST")
-  ctx.json(405, Json::object(H([
+  ctx.json(405, Json::object(h([
     ("error", Json::string("Method not allowed for this path")),
     ("method", Json::string(ctx.method())),
   ])))
@@ -110,16 +110,16 @@ async fn handle_login(ctx : Context) {
         _ => ""
       }
       if username == "" {
-        ctx.json(400, Json::object(H([
+        ctx.json(400, Json::object(h([
           ("error", Json::string("username is required")),
         ])))
         return
       }
-      ctx.json(200, Json::object(H([
+      ctx.json(200, Json::object(h([
         ("message", Json::string("Welcome, \{username}!")),
       ])))
     }
-    None => ctx.json(400, Json::object(H([
+    None => ctx.json(400, Json::object(h([
       ("error", Json::string("Invalid JSON body")),
     ])))
   }
@@ -130,7 +130,7 @@ async fn handle_login(ctx : Context) {
 fn handle_query(ctx : Context) {
   let search = ctx.query_default("q", "")
   let page = ctx.query_default("page", "1")
-  ctx.json(200, Json::object(H([
+  ctx.json(200, Json::object(h([
     ("search", Json::string(search)),
     ("page", Json::string(page)),
   ])))
@@ -139,7 +139,7 @@ fn handle_query(ctx : Context) {
 ///|
 /// GET /api/negotiate — content negotiation demo
 fn handle_negotiate(ctx : Context) {
-  let data = H([
+  let data = h([
     ("message", Json::string("Hello from mbit")),
   ])
   match ctx.negotiate_format(["application/json", "text/html"]) {
@@ -158,7 +158,7 @@ fn handle_ws_info(ctx : Context) {
   if ctx.is_websocket() {
     ctx.string(200, "WebSocket upgrade detected!")
   } else {
-    ctx.json(200, Json::object(H([
+    ctx.json(200, Json::object(h([
       ("websocket", Json::string("false")),
       ("hint", Json::string("Add Connection: Upgrade and Upgrade: websocket headers")),
     ])))
@@ -206,7 +206,7 @@ async fn main {
   protected.use(auth_mw())
   protected.get("/", [handle_protected])
   protected.get("/admin", [fn(ctx) {
-    ctx.json(200, Json::object(H([
+    ctx.json(200, Json::object(h([
       ("role", Json::string("admin")),
     ])))
   }])
@@ -214,7 +214,7 @@ async fn main {
   // === Nested route group ===
   let admin = protected.group("/admin")
   admin.get("/dashboard", [fn(ctx) {
-    ctx.json(200, Json::object(H([
+    ctx.json(200, Json::object(h([
       ("dashboard", Json::string("admin dashboard")),
     ])))
   }])
