@@ -58,7 +58,7 @@ pub fn url_decode(s : String) -> String {
       let hex = chars[i + 1].to_string() + chars[i + 2].to_string()
       match parse_hex(hex) {
         Some(byte) => {
-          result = result + Char::from_int(byte).to_string()
+          result = result + Int::unsafe_to_char(byte).to_string()
           i = i + 3
         }
         None => {

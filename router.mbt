@@ -53,7 +53,7 @@ fn Node::new(seg : String, kind : NodeKind) -> Node {
   {
     seg,
     kind,
-    children: {},
+    children: Map([]),
     param_child: None,
     wildcard_child: None,
     handlers: [],
@@ -73,7 +73,7 @@ pub(all) struct Router {
 ///|
 /// Create a new empty Router.
 pub fn Router::new() -> Router {
-  let roots : Map[Method, Node] = {}
+  let roots : Map[Method, Node] = Map([])
   for meth in all_methods() {
     roots.set(meth, Node::new("/", Root))
   }
@@ -381,7 +381,7 @@ pub async fn Router::dispatch(
   let meth = Method::from_native(req.meth)
   let path = strip_query(req.path)
   let path_segs = split_path(path)
-  let params : Map[String, String] = {}
+  let params : Map[String, String] = Map([])
 
   // Try the requested method's trie first
   match self.roots.get(meth) {
@@ -405,7 +405,7 @@ pub async fn Router::dispatch(
     if self.no_method_handlers.length() > 0 {
       let result = MatchResult::{
         handlers: self.no_method_handlers,
-        params: {},
+        params: Map([]),
         node_middlewares: [],
       }
       let ctx = self.build_ctx(req, reader, conn, result)
@@ -418,7 +418,7 @@ pub async fn Router::dispatch(
   if self.no_route_handlers.length() > 0 {
     let result = MatchResult::{
       handlers: self.no_route_handlers,
-      params: {},
+      params: Map([]),
       node_middlewares: [],
     }
     let ctx = self.build_ctx(req, reader, conn, result)
@@ -434,7 +434,7 @@ fn check_path_exists(router : Router, segments : Array[String]) -> Bool {
   for meth in all_methods() {
     match router.roots.get(meth) {
       Some(root) => {
-        let params : Map[String, String] = {}
+        let params : Map[String, String] = Map([])
         match search(root, segments, 0, params) {
           Some(_) => return true
           None => ()
@@ -474,7 +474,7 @@ fn Router::build_ctx(
 ///|
 /// Start executing the handler chain from the first handler.
 async fn Router::execute_chain(self : Router, ctx : Context) -> Unit {
-  ignore(self)
+  let _ = self
   let chain = ctx.handlers
   if chain.length() > 0 {
     let first = chain[0]
@@ -609,7 +609,7 @@ pub fn strip_query(path : String) -> String {
 ///|
 /// Information about a single registered route.
 pub(all) struct RouteInfo {
-  method : String
+  meth : String
   path : String
   handler_count : Int
 }
@@ -657,7 +657,7 @@ fn collect_routes(
   let child_prefix = if is_root { prefix } else { display }
   if node.handlers.length() > 0 {
     result.push(RouteInfo::{
-      method: meth,
+      meth,
       path: display,
       handler_count: node.handlers.length(),
     })
@@ -766,8 +766,8 @@ fn print_tree(
   // Print children
   let mut idx = 0
   let total = children.length() +
-    (if node.param_child.is_some() { 1 } else { 0 }) +
-    (if node.wildcard_child.is_some() { 1 } else { 0 })
+    (if node.param_child is Some(_) { 1 } else { 0 }) +
+    (if node.wildcard_child is Some(_) { 1 } else { 0 })
 
   // Static children
   for seg in children {

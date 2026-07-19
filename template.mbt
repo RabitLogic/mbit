@@ -15,7 +15,7 @@ pub(all) struct TemplateStore {
 
 ///|
 pub fn TemplateStore::new() -> TemplateStore {
-  { templates: {}, delims_left: "{{", delims_right: "}}" }
+  { templates: Map([]), delims_left: "{{", delims_right: "}}" }
 }
 
 ///|

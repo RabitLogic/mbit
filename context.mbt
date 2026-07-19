@@ -45,7 +45,7 @@ pub fn TestConn::new() -> TestConn {
   {
     status: 0,
     reason: "",
-    headers: {},
+    headers: Map([]),
     body: "",
     header_sent: false,
     ended: false,
@@ -66,7 +66,7 @@ pub async fn ResponseConn::send_response(
   self : ResponseConn,
   code : Int,
   reason : String,
-  extra_headers~ : Map[String, String] = {},
+  extra_headers~ : Map[String, String] = Map([]),
 ) -> Unit {
   match self {
     Real(c) => c.send_response(code, reason, extra_headers~)
@@ -170,7 +170,7 @@ pub fn Context::new(
     req,
     reader,
     conn,
-    params: {},
+    params: Map([]),
     query_cache: None,
     body: None,
     post_form_cache: None,
@@ -180,9 +180,9 @@ pub fn Context::new(
     written: false,
     aborted: false,
     size: 0,
-    store: {},
+    store: Map([]),
     errors: [],
-    headers: {},
+    headers: Map([]),
   }
 }
 
@@ -192,7 +192,7 @@ pub fn Context::new(
 
 ///|
 /// The HTTP method of the request (e.g., "GET", "POST").
-pub fn Context::method(self : Context) -> String {
+pub fn Context::http_method(self : Context) -> String {
   Method::from_native(self.req.meth).to_string()
 }
 
@@ -373,10 +373,7 @@ pub fn Context::param_default(
 pub fn Context::param_int64(self : Context, key : String) -> Int64? {
   match self.params.get(key) {
     Some(v) =>
-      match (try? @string.parse_int64(v)) {
-        Ok(n) => Some(n)
-        Err(_) => None
-      }
+      try { Some(@string.parse_int64(v)) } catch { _ => None }
     None => None
   }
 }
@@ -401,7 +398,7 @@ fn Context::parse_query(self : Context) -> Unit {
         Some(pos) => self.req.path[pos + 1:].to_owned()
         None => ""
       }
-      let map : Map[String, String] = {}
+      let map : Map[String, String] = Map([])
       if qs != "" {
         let pairs = qs.split("&")
         for pair in pairs {
@@ -448,10 +445,7 @@ pub fn Context::query_default(
 pub fn Context::query_int64(self : Context, key : String) -> Int64? {
   match self.query(key) {
     Some(v) =>
-      match (try? @string.parse_int64(v)) {
-        Ok(n) => Some(n)
-        Err(_) => None
-      }
+      try { Some(@string.parse_int64(v)) } catch { _ => None }
     None => None
   }
 }
@@ -461,10 +455,7 @@ pub fn Context::query_int64(self : Context, key : String) -> Int64? {
 pub fn Context::query_int(self : Context, key : String) -> Int? {
   match self.query(key) {
     Some(v) =>
-      match (try? @string.parse_int(v)) {
-        Ok(n) => Some(n)
-        Err(_) => None
-      }
+      try { Some(@string.parse_int(v)) } catch { _ => None }
     None => None
   }
 }
@@ -504,7 +495,7 @@ async fn Context::parse_post_form(self : Context) -> Unit {
     Some(_) => ()
     None => {
       let raw = self.body_string()
-      let map : Map[String, String] = {}
+      let map : Map[String, String] = Map([])
       if raw != "" {
         let pairs = raw.split("&")
         for pair in pairs {
@@ -629,7 +620,7 @@ pub fn Context::get_string_map(
 ) -> Map[String, String]? {
   match self.store.get(key) {
     Some(Json::Object(map)) => {
-      let result : Map[String, String] = {}
+      let result : Map[String, String] = Map([])
       for k, v in map {
         match v {
           Json::String(s) => result.set(k, s)
@@ -732,12 +723,12 @@ pub async fn Context::negotiate_format(
   // Parse Accept header: "text/html, application/json;q=0.9, */*;q=0.8"
   // Simple implementation: exact match
   for offer in offered {
-    if accept.find(offer).is_some() {
+    if accept.find(offer) is Some(_) {
       return Some(offer)
     }
   }
   // Check for wildcard
-  if accept.find("*/*").is_some() && offered.length() > 0 {
+  if accept.find("*/*") is Some(_) && offered.length() > 0 {
     return Some(offered[0])
   }
   // No match — 406 Not Acceptable
@@ -1258,7 +1249,7 @@ pub async fn Context::stream(
   self.conn.send_response(code, status_text(code), extra_headers=all_headers)
 
   // The writer callback sends chunks
-  writer(fn(chunk : String) {
+  writer(async fn(chunk : String) {
     self.conn.write_body(chunk)
     self.size = self.size + chunk.length()
   })
@@ -1329,10 +1320,7 @@ pub async fn Context::body_string(self : Context) -> String {
 /// Parse the request body as JSON.
 pub async fn Context::body_json(self : Context) -> Json? {
   let raw = self.body_string()
-  match (try? @json.parse(raw)) {
-    Ok(j) => Some(j)
-    Err(_) => None
-  }
+  try { Some(@json.parse(raw)) } catch { _ => None }
 }
 
 ///|
@@ -1343,9 +1331,9 @@ pub async fn Context::body_json(self : Context) -> Json? {
 /// Returns `Some(value)` on success, `None` on failure.
 pub async fn[T : @json.FromJson] Context::should_bind(self : Context) -> T? {
   let ct = self.content_type()
-  if ct.find("application/json").is_some() {
+  if ct.find("application/json") is Some(_) {
     bind_json(self)
-  } else if ct.find("application/x-www-form-urlencoded").is_some() {
+  } else if ct.find("application/x-www-form-urlencoded") is Some(_) {
     bind_form(self)
   } else {
     // Default to JSON
@@ -1520,7 +1508,7 @@ pub fn Context::reset(self : Context) -> Unit {
   self.written = false
   self.status_code = 200
   self.errors = []
-  self.headers = {}
+  self.headers = Map([])
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -1582,7 +1570,7 @@ pub fn Context::query_map(self : Context) -> Map[String, String] {
   self.parse_query()
   match self.query_cache {
     Some(map) => map
-    None => {}
+    None => Map([])
   }
 }
 
@@ -1592,7 +1580,7 @@ pub async fn Context::post_form_map(self : Context) -> Map[String, String] {
   self.parse_post_form()
   match self.post_form_cache {
     Some(map) => map
-    None => {}
+    None => Map([])
   }
 }
 
@@ -1785,7 +1773,7 @@ fn escape_to_ascii(s : String) -> String {
     if ch.to_int() <= 127 {
       result = result + ch.to_string()
     } else {
-      let hex = ch.to_int().to_uint().to_string(radix=16)
+      let hex = ch.to_int().reinterpret_as_uint().to_string(radix=16)
       result = result + "\\u" + "0".repeat(4 - hex.length()) + hex
     }
   }
@@ -2029,7 +2017,7 @@ pub(all) enum RenderType {
   YAML
   TOML
   ProtoBuf
-} derive(Show, Eq)
+} derive(Debug, Eq)
 
 ///|
 /// MultipartForm returns the full multipart form data as parsed fields.
@@ -2037,17 +2025,17 @@ pub(all) enum RenderType {
 pub async fn Context::multipart_form(self : Context) -> Map[String, String] {
   let content_type = self.content_type()
   if !content_type.has_prefix("multipart/form-data") {
-    return {}
+    return Map([])
   }
   let boundary = match content_type.find("boundary=") {
     Some(pos) => {
       let start = pos + "boundary=".length()
       content_type[start:].to_owned()
     }
-    None => return {}
+    None => return Map([])
   }
   let body = self.body_string()
-  let result : Map[String, String] = {}
+  let result : Map[String, String] = Map([])
   // Parse all parts: find each "name=" field and extract content
   let boundary_marker = "--" + boundary
   let mut search_from = 0

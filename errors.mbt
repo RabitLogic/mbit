@@ -11,7 +11,7 @@ pub(all) enum Method {
   PATCH
   HEAD
   OPTIONS
-} derive(Show, Eq, Hash, @debug.Debug)
+} derive(Debug, Eq, Hash)
 
 ///|
 /// Convert from native HTTP RequestMethod
@@ -63,7 +63,7 @@ pub(all) enum MbitError {
   ValidationError(String)
   NotFound(String)
   InternalError(String)
-} derive(Show)
+} derive(Debug)
 
 ///|
 /// Standard HTTP status codes used by the framework

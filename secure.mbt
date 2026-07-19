@@ -96,7 +96,7 @@ pub fn SecureConfig::api_default() -> SecureConfig {
 /// app.use(secure(SecureConfig::api_default()))
 /// ```
 pub fn secure(config : SecureConfig) -> Handler {
-  fn(ctx) {
+  async fn(ctx) {
     // X-Frame-Options (skip for APIs)
     if config.frame_options != "" {
       ctx.set_header("X-Frame-Options", config.frame_options)

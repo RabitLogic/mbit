@@ -215,7 +215,7 @@ test "BasicAuthConfig multiple accounts" {
 }
 
 test "BasicAuthConfig empty accounts" {
-  let accounts : Map[String, String] = {}
+  let accounts : Map[String, String] = Map([])
   let c = BasicAuthConfig::{ accounts, realm: "" }
   assert_eq(c.accounts.length(), 0)
   assert_eq(c.realm, "")
@@ -225,7 +225,7 @@ test "basic_auth_for_realm functionality" {
   let accounts : Map[String, String] = { "root": "toor" }
   let handler = basic_auth_for_realm(accounts, "Admin Area")
   // Verify it returns a Handler (type check by calling)
-  ignore(handler)
+  let _ = handler
   assert_true(true)
 }
 
@@ -235,13 +235,13 @@ test "basic_auth_for_realm functionality" {
 
 test "body_size_limit with zero" {
   let handler = body_size_limit(0L)
-  ignore(handler)
+  let _ = handler
   assert_true(true)
 }
 
 test "body_size_limit with large value" {
   let handler = body_size_limit(10L * 1024L * 1024L * 1024L) // 10 GB
-  ignore(handler)
+  let _ = handler
   assert_true(true)
 }
 

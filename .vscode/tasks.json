@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "moon check (no 0035/0029)",
+      "type": "shell",
+      "command": "moon check --target native --warn-list \"-0035-0029\"",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "moon test (no 0035/0029)",
+      "type": "shell",
+      "command": "moon test --target native --warn-list \"-0035-0029\"",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

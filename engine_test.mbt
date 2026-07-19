@@ -18,7 +18,7 @@ test "register GET" {
 test "register POST" {
   let app = new()
   app.post("/api", [(_ctx) => ()]) |> ignore
-  assert_eq(app.routes()[0].method, "POST")
+  assert_eq(app.routes()[0].meth, "POST")
 }
 
 test "any registers 7 methods" {
@@ -122,23 +122,24 @@ test "name_and_version" {
   assert_true(name_and_version().has_prefix("mbit/"))
 }
 
-test "gins global engine" {
-  let _ = gins_engine()
+test "app singleton" {
+  let _ = Mbit::default().engine()
   assert_true(true)
 }
 
-test "gins_get registers route" {
-  gins_get("/gtest", [(_ctx) => ()])
-  assert_true(gins_routes().length() >= 1)
+test "Mbit::default().get registers route" {
+  let a = Mbit::default()
+  a.get("/gtest", [(_ctx) => ()])
+  assert_true(a.routes().length() >= 1)
 }
 
-test "gins_use adds middleware" {
-  gins_use((ctx) => { ctx.next() })
+test "Mbit::default().use adds middleware" {
+  Mbit::default().use((ctx) => { ctx.next() })
   assert_true(true)
 }
 
-test "gins no_route" {
-  gins_no_route([(ctx) => { ctx.string(404, "nf") }])
+test "Mbit::default().no_route" {
+  Mbit::default().no_route([(ctx) => { ctx.string(404, "nf") }])
   assert_true(true)
 }
 
@@ -265,7 +266,7 @@ test "engine patch registration" {
   let app = new()
   app.patch("/items/:id", [(_ctx) => ()]) |> ignore
   assert_eq(app.routes().length(), 1)
-  assert_eq(app.routes()[0].method, "PATCH")
+  assert_eq(app.routes()[0].meth, "PATCH")
 }
 
 test "group with middleware chaining" {

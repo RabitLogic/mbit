@@ -26,7 +26,7 @@ pub async fn ResponseWriter::write_header(
 ) -> Unit {
   if !self.written {
     self.status = code
-    self.conn.send_response(code, status_text(code), extra_headers={})
+    self.conn.send_response(code, status_text(code), extra_headers=Map([]))
     self.written = true
   }
 }
@@ -78,7 +78,7 @@ pub async fn ResponseWriter::flush(self : ResponseWriter) -> Unit {
 /// WriteHeaderNow forces the response header to be written immediately.
 pub async fn ResponseWriter::write_header_now(self : ResponseWriter) -> Unit {
   if !self.written {
-    self.conn.send_response(self.status, status_text(self.status), extra_headers={})
+    self.conn.send_response(self.status, status_text(self.status), extra_headers=Map([]))
     self.written = true
   }
 }

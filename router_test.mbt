@@ -216,8 +216,8 @@ test "routes returns correct method names" {
   let mut has_get = false
   let mut has_post = false
   for r in routes {
-    if r.method == "GET" { has_get = true }
-    if r.method == "POST" { has_post = true }
+    if r.meth == "GET" { has_get = true }
+    if r.meth == "POST" { has_post = true }
   }
   assert_true(has_get)
   assert_true(has_post)

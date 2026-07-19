@@ -14,9 +14,9 @@ pub fn debug_print(msg : String) -> Unit {
 
 ///|
 /// Debug print for route registration.
-pub fn debug_print_route(method : String, path : String) -> Unit {
+pub fn debug_print_route(meth : String, path : String) -> Unit {
   if is_debug() {
-    println("[mbit] " + method + " " + path)
+    println("[mbit] " + meth + " " + path)
   }
 }
 

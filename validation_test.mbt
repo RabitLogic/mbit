@@ -185,7 +185,7 @@ test "validate_map two failures" {
 }
 
 test "validate_map missing field treated as empty" {
-  let values : Map[String, String] = {}
+  let values : Map[String, String] = Map([])
   let rules = [FieldRules::new("name", [Required])]
   let errors = validate_map(values, rules)
   assert_true(errors.has_errors())

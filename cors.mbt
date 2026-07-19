@@ -36,7 +36,7 @@ pub fn CORSConfig::default() -> CORSConfig {
 ///|
 /// CORS middleware with custom configuration.
 pub fn cors(config : CORSConfig) -> Handler {
-  fn(ctx) {
+  async fn(ctx) {
     // Set CORS headers
     let origin = match ctx.header("Origin") {
       Some(o) => o
@@ -70,7 +70,7 @@ pub fn cors(config : CORSConfig) -> Handler {
     ctx.set_header("Access-Control-Max-Age", config.max_age.to_string())
 
     // Handle preflight
-    if ctx.method() == "OPTIONS" {
+    if ctx.http_method() == "OPTIONS" {
       ctx.no_content()
       return
     }

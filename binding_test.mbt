@@ -11,7 +11,7 @@ struct TestId {
 } derive(@json.FromJson)
 
 struct TestHeaders {
-  host : String
+  _host : String
 } derive(@json.FromJson)
 
 test "bind_query parses query string" {

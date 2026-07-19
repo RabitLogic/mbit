@@ -11,7 +11,7 @@
 ///|
 /// Custom auth middleware — checks for an `Authorization` header.
 fn auth_mw() -> Handler {
-  fn(ctx) {
+  async fn(ctx) {
     match ctx.header("Authorization") {
       Some(token) => {
         ctx.set("token", Json::string(token))

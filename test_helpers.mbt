@@ -22,7 +22,7 @@ pub fn create_test_context(meth : String, path : String) -> Context {
     "OPTIONS" => Options
     _ => Get
   }
-  let req : @http.Request = { meth: native_method, path, headers: {} }
+  let req : @http.Request = { meth: native_method, path, headers: Map([]) }
   let conn = ResponseConn::Test(TestConn::new())
   let (reader, writer) = @io.pipe()
   writer.close()

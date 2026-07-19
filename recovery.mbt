@@ -9,7 +9,7 @@
 /// ```
 
 pub fn recovery() -> Handler {
-  fn(ctx) {
+  async fn(ctx) {
     try {
       ctx.next()
     } catch {

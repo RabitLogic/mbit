@@ -210,7 +210,7 @@ pub fn Group::static_files(
   self.router.get(
     prefix + "/*filepath",
     self.build_chain([
-      fn(ctx) {
+      async fn(ctx) {
         let file = ctx.param_default("filepath", "")
         let file_path = root + "/" + file
         try {
@@ -240,7 +240,7 @@ pub fn Group::static_file(
   self.router.get(
     self.full_path(relative_path),
     self.build_chain([
-      fn(ctx) {
+      async fn(ctx) {
         try {
           let content = @fs.read_file(file_path).text()
           let ct = guess_content_type(file_path)

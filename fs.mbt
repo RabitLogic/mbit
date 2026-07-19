@@ -8,7 +8,7 @@
 /// app.use(static_files("/static", "./public"))
 /// ```
 pub fn static_files(prefix : String, dir : String) -> Handler {
-  fn(ctx) {
+  async fn(ctx) {
     let path = ctx.path()
     if path.has_prefix(prefix) {
       let file_path = dir + path[prefix.length():].to_owned()

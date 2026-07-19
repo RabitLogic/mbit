@@ -9,14 +9,14 @@
 /// ```
 
 pub fn logger() -> Handler {
-  fn(ctx) {
-    let start = @async.now()
+  async fn(ctx) {
+    let start = @env.now()
     // Run the rest of the chain
     ctx.next()
     // After the chain completes
-    let elapsed = @async.now() - start
+    let elapsed = @env.now() - start
     let status = ctx.status_code
-    let meth = ctx.method()
+    let meth = ctx.http_method()
     let path = ctx.path()
     let client_ip = ctx.client_ip()
     println("\{client_ip} [\{meth}] \{path} -> \{status} (\{elapsed}ms)")

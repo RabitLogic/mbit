@@ -24,10 +24,7 @@ pub async fn[T : @json.FromJson] bind_json(ctx : Context) -> T? {
   let json = ctx.body_json()
   match json {
     Some(j) =>
-      match (try? @json.from_json(j)) {
-        Ok(v) => Some(v)
-        Err(_) => None
-      }
+      try { Some(@json.from_json(j)) } catch { _ => None }
     None => None
   }
 }
@@ -41,7 +38,7 @@ pub async fn[T : @json.FromJson] bind_json(ctx : Context) -> T? {
 /// Converts query string to a JSON object first.
 pub fn[T : @json.FromJson] bind_query(ctx : Context) -> T? {
   // Build a JSON object from query parameters
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   let qs = ctx.full_path()
   match qs.find("?") {
     Some(pos) => {
@@ -64,10 +61,7 @@ pub fn[T : @json.FromJson] bind_query(ctx : Context) -> T? {
     None => ()
   }
   let json = Json::object(obj)
-  match (try? @json.from_json(json)) {
-    Ok(v) => Some(v)
-    Err(_) => None
-  }
+  try { Some(@json.from_json(json)) } catch { _ => None }
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -92,7 +86,7 @@ pub async fn[T : @json.FromJson] bind_form(ctx : Context) -> T? {
   if raw == "" {
     return None
   }
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   let pairs = raw.split("&")
   for pair in pairs {
     match pair.find("=") {
@@ -108,10 +102,7 @@ pub async fn[T : @json.FromJson] bind_form(ctx : Context) -> T? {
     }
   }
   let json = Json::object(obj)
-  match (try? @json.from_json(json)) {
-    Ok(v) => Some(v)
-    Err(_) => None
-  }
+  try { Some(@json.from_json(json)) } catch { _ => None }
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -131,7 +122,7 @@ pub async fn[T : @json.FromJson] bind_form(ctx : Context) -> T? {
 /// let hdrs : Headers? = bind_header(ctx)
 /// ```
 pub fn[T : @json.FromJson] bind_header(ctx : Context) -> T? {
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   // We extract common headers manually since we don't have
   // a full headers iterator on the native request
   let common_headers = [
@@ -146,10 +137,7 @@ pub fn[T : @json.FromJson] bind_header(ctx : Context) -> T? {
     }
   }
   let json = Json::object(obj)
-  match (try? @json.from_json(json)) {
-    Ok(v) => Some(v)
-    Err(_) => None
-  }
+  try { Some(@json.from_json(json)) } catch { _ => None }
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -169,16 +157,13 @@ pub fn[T : @json.FromJson] bind_header(ctx : Context) -> T? {
 /// let params : ArticleParams? = bind_path(ctx)
 /// ```
 pub fn[T : @json.FromJson] bind_path(ctx : Context) -> T? {
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   let all_params = ctx.params_all()
   for k, v in all_params {
     obj.set(k, Json::string(v))
   }
   let json = Json::object(obj)
-  match (try? @json.from_json(json)) {
-    Ok(v) => Some(v)
-    Err(_) => None
-  }
+  try { Some(@json.from_json(json)) } catch { _ => None }
 }
 
 ///| ——————————————————————————————————————————————————————————————————————

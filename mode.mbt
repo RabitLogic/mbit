@@ -9,7 +9,17 @@ pub(all) enum Mode {
   Debug
   Release
   Test
-} derive(Show, Eq, @debug.Debug)
+} derive(Debug, Eq)
+
+///|
+/// Convert mode to a display string.
+pub fn Mode::to_string(self : Mode) -> String {
+  match self {
+    Debug => "Debug"
+    Release => "Release"
+    Test => "Test"
+  }
+}
 
 ///|
 /// Internal holder for the mutable current mode.

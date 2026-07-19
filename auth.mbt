@@ -22,7 +22,7 @@ pub(all) struct BasicAuthConfig {
 /// Basic authentication middleware.
 
 pub fn basic_auth(config : BasicAuthConfig) -> Handler {
-  fn(ctx) {
+  async fn(ctx) {
     let auth_header = match ctx.header("Authorization") {
       Some(h) => h
       None => {

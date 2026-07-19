@@ -15,7 +15,7 @@ test "template store set and render" {
 ///|
 test "template store missing template" {
   let store = TemplateStore::new()
-  match store.render("missing", {}) {
+  match store.render("missing", Map([])) {
     Some(_) => assert_true(false)
     None => assert_true(true)
   }

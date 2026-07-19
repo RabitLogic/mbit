@@ -25,18 +25,18 @@ pub fn RateLimitConfig::default() -> RateLimitConfig {
 ///|
 /// Simple in-memory rate limiter based on client IP.
 pub fn rate_limit(config : RateLimitConfig) -> Handler {
-  let store : Map[String, Array[Int64]] = {}
-  let window_ms : Int64 = config.window_secs.to_int64() * 1000L
-  fn(ctx) {
+  let store : Map[String, Array[UInt64]] = Map([])
+  let window_ms : UInt64 = config.window_secs.to_uint64() * 1000UL
+  async fn(ctx) {
     let ip = ctx.client_ip()
-    let now = @async.now()
+    let now = @env.now()
     let timestamps = match store.get(ip) {
       Some(ts) => ts
       None => []
     }
     // Remove expired timestamps
     let cutoff = now - window_ms
-    let valid : Array[Int64] = []
+    let valid : Array[UInt64] = []
     for ts in timestamps {
       if ts > cutoff {
         valid.push(ts)

@@ -53,7 +53,7 @@ pub fn FieldRules::new(field : String, rules : Array[Rule]) -> FieldRules {
 pub(all) struct ValidationError {
   field : String
   message : String
-} derive(Show)
+} derive(Debug)
 
 ///|
 /// Collection of validation errors.
@@ -98,7 +98,7 @@ pub fn ValidationErrors::first_error(self : ValidationErrors) -> String? {
 ///|
 /// Convert validation errors to a JSON response body.
 pub fn ValidationErrors::to_json(self : ValidationErrors) -> Json {
-  let obj : Map[String, Json] = {}
+  let obj : Map[String, Json] = Map([])
   for err in self.errors {
     obj.set(err.field, Json::string(err.message))
   }
@@ -128,24 +128,26 @@ pub fn validate_field(value : String, rules : Array[Rule]) -> String? {
       }
       Min(n) => {
         // Try numeric comparison first
-        match (try? @string.parse_int64(value)) {
-          Ok(num) =>
-            if num < n.to_int64() {
-              return Some("must be at least " + n.to_string())
-            }
-          Err(_) =>
+        try {
+          let num = @string.parse_int64(value)
+          if num < n.to_int64() {
+            return Some("must be at least " + n.to_string())
+          }
+        } catch {
+          _ =>
             if value.length() < n {
               return Some("must be at least " + n.to_string() + " characters")
             }
         }
       }
       Max(n) =>
-        match (try? @string.parse_int64(value)) {
-          Ok(num) =>
-            if num > n.to_int64() {
-              return Some("must be at most " + n.to_string())
-            }
-          Err(_) =>
+        try {
+          let num = @string.parse_int64(value)
+          if num > n.to_int64() {
+            return Some("must be at most " + n.to_string())
+          }
+        } catch {
+          _ =>
             if value.length() > n {
               return Some("must be at most " + n.to_string() + " characters")
             }
@@ -157,7 +159,7 @@ pub fn validate_field(value : String, rules : Array[Rule]) -> String? {
       }
       Pattern(pattern) => {
         // Simple pattern matching: check if value contains the pattern
-        if !value.find(pattern).is_some() && value != pattern {
+        if value.find(pattern) is None && value != pattern {
           return Some("does not match pattern " + pattern)
         }
       }
@@ -174,7 +176,7 @@ pub fn validate_field(value : String, rules : Array[Rule]) -> String? {
         }
       }
       Email => {
-        if !value.find("@").is_some() || !value.find(".").is_some() {
+        if value.find("@") is None || value.find(".") is None {
           return Some("must be a valid email address")
         }
         let at_pos = match value.find("@") {
