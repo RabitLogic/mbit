@@ -10,7 +10,7 @@
 
 ///|
 /// Custom auth middleware — checks for an `Authorization` header.
-fn auth_mw() -> Handler {
+fn auth_middleware() -> Handler {
   async fn(ctx) {
     match ctx.header("Authorization") {
       Some(token) => {
@@ -203,7 +203,7 @@ async fn main {
 
   // === Route group with auth middleware ===
   let protected = app.group("/api/protected")
-  protected.use(auth_mw())
+  protected.use(auth_middleware())
   protected.get("/", [handle_protected])
   protected.get("/admin", [fn(ctx) {
     ctx.json(200, Json::object(h([

@@ -252,7 +252,7 @@ app.use(secure(SecureConfig::default()))
 ### Custom Middleware
 
 ```moonbit
-fn auth_mw() -> Handler {
+fn auth_middleware() -> Handler {
   async fn(ctx) {
     match ctx.header("Authorization") {
       Some(token) => {
@@ -264,7 +264,7 @@ fn auth_mw() -> Handler {
   }
 }
 
-app.use(auth_mw())
+app.use(auth_middleware())
 ```
 
 ## Context
