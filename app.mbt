@@ -123,6 +123,12 @@ pub fn Mbit::set_func_map(self : Mbit, funcs : Map[String, String]) -> Unit {
   self.engine.set_func_map(funcs)
 }
 
+///|
+/// Register a built-in `/health` endpoint.
+pub fn Mbit::health(self : Mbit) -> Unit {
+  self.engine.health()
+}
+
 ///| ——————————————————————————————————————————————————————————————————————
 ///  Configuration
 ///| ——————————————————————————————————————————————————————————————————————

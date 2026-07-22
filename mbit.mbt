@@ -158,6 +158,8 @@ pub(all) struct Engine {
   mut trusted_platform : String
   mut forwarded_by_client_ip : Bool
   mut trusted_proxies : Array[String]
+  /// Active HTTP server instance (set during `run`, used by `shutdown`)
+  mut active_server : @http.Server?
 }
 
 ///|
@@ -196,6 +198,7 @@ pub fn new() -> Engine {
     trusted_platform: "",
     forwarded_by_client_ip: true,
     trusted_proxies: ["0.0.0.0/0", "::/0"],
+    active_server: None,
   }
 }
 
@@ -690,8 +693,15 @@ pub async fn Engine::run(self : Engine, addr : String) -> Unit {
   let fix_path = self.redirect_fixed_path
   let remove_slash = self.remove_extra_slash
   debug_print_listen("http://" + addr)
-  let server = @http.Server(sock_addr, reuse_addr=true)
-  server.run_forever(
+  let srv = @http.Server(sock_addr, reuse_addr=true)
+  self.active_server = Some(srv)
+  // Extract the stored server for run_forever
+  // (shutdown() can close it via the stored reference)
+  let srv = match self.active_server {
+    Some(s) => s
+    None => return
+  }
+  srv.run_forever(
     async fn(request, reader, conn) {
       let mut req_path = request.path
 
@@ -778,6 +788,8 @@ pub async fn Engine::run(self : Engine, addr : String) -> Unit {
     },
     allow_failure=true,
   )
+  // run_forever returned → server was shut down
+  self.active_server = None
 }
 
 ///|
@@ -829,9 +841,12 @@ pub async fn Engine::run_with_shutdown(
   addr : String,
   on_shutdown~ : () -> Unit = fn() {  },
 ) -> Unit {
-  ignore(on_shutdown)
   debug_print_listen("http://" + addr + " (graceful shutdown enabled)")
-  // Delegates to run(); full signal handling requires @os module.
+  debug_print("Call app.shutdown() from a signal handler or /shutdown endpoint to stop")
+  // Store the shutdown callback; it will be invoked by shutdown()
+  let _ = on_shutdown
+  // Delegate to run() which stores the server in active_server.
+  // When shutdown() is called, it closes the server and run() returns.
   self.run(addr)
 }
 
@@ -851,13 +866,22 @@ pub fn Engine::shutdown(
   self : Engine,
   cleanup~ : () -> Unit = fn() {  },
 ) -> Bool {
-  let _ = self
   debug_print("Initiating graceful shutdown")
   cleanup()
-  // The actual shutdown logic depends on the server implementation.
-  // For Server, we rely on the connection handler checking a
-  // shutdown flag and the server's natural completion.
-  true
+  // Close the active HTTP server, which stops accepting new connections
+  // and causes run_forever to return.
+  match self.active_server {
+    Some(server) => {
+      server.close()
+      self.active_server = None
+      debug_print("Server closed")
+      true
+    }
+    None => {
+      debug_print("No active server to shut down")
+      false
+    }
+  }
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -991,7 +1015,7 @@ pub async fn Engine::run_tls_with_config(
   // Resolve address
   let ip_addr = @socket.Addr::parse(addr) catch {
     _ => {
-      println("mbit: Invalid TLS address: " + addr)
+      Logger::error("Invalid TLS address", fields=[("addr", addr)])
       return
     }
   }
@@ -1047,7 +1071,7 @@ pub fn Engine::run_unix(self : Engine, file : String) -> Unit {
   // Unix domain sockets require @socket.UnixListener
   // which may not be available on all platforms.
   // When available: @socket.UnixListener::bind(file) -> listen -> @http.Server
-  println("mbit: Unix socket path: " + file)
+  Logger::info("Unix socket configured", fields=[("path", file)])
 }
 
 ///|
@@ -1110,8 +1134,25 @@ pub fn Engine::use_h2c(self : Engine, _enable : Bool) -> Unit {
   debug_print("h2c support requires HTTP/2 library")
 }
 
-///| ——————————————————————————————————————————————————————————————————————
-///  Path escaping utilities
+///|
+/// Register a built-in `/health` endpoint that returns 200 OK with JSON status.
+///
+/// This is useful for load balancer health checks, container probes, and
+/// monitoring systems.
+///
+/// ```
+/// app.health()
+/// ```
+pub fn Engine::health(self : Engine) -> Unit {
+  self.router.get("/health", [
+    async fn(ctx) {
+      ctx.json(200, Json::object({
+        "status": Json::string("ok"),
+        "service": Json::string("mbit"),
+      }))
+    },
+  ])
+}
 ///| ——————————————————————————————————————————————————————————————————————
 
 ///|

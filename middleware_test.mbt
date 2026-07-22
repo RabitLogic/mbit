@@ -541,21 +541,21 @@ test "RateLimitConfig when condition" {
 ///| ——————————————————————————————————————————————————————————————————————
 
 test "set_log_level and log_level" {
-  set_log_level(Debug)
-  assert_eq(log_level(), Debug)
-  set_log_level(Info)
-  assert_eq(log_level(), Info)
-  set_log_level(Debug)  // reset
+  Logger::set_level(Debug)
+  assert_eq(Logger::level(), Debug)
+  Logger::set_level(Info)
+  assert_eq(Logger::level(), Info)
+  Logger::set_level(Debug)
 }
 
 test "is_log_enabled" {
-  set_log_level(Info)
-  assert_false(is_log_enabled(Debug))
-  assert_true(is_log_enabled(Info))
-  assert_true(is_log_enabled(Warn))
-  assert_true(is_log_enabled(Error))
-  set_log_level(Debug)
-  assert_true(is_log_enabled(Debug))
+  Logger::set_level(Info)
+  assert_false(Logger::is_enabled(Debug))
+  assert_true(Logger::is_enabled(Info))
+  assert_true(Logger::is_enabled(Warn))
+  assert_true(Logger::is_enabled(Error))
+  Logger::set_level(Debug)
+  assert_true(Logger::is_enabled(Debug))
 }
 
 test "StructuredLogConfig defaults" {
@@ -567,22 +567,22 @@ test "StructuredLogConfig defaults" {
 }
 
 test "log_debug with fields" {
-  log_debug("test debug", fields=[("key", "value")])
+  Logger::debug("test debug", fields=[("key", "value")])
   assert_true(true)
 }
 
 test "log_info with fields" {
-  log_info("test info", fields=[("user", "42"), ("action", "login")])
+  Logger::info("test info", fields=[("user", "42"), ("action", "login")])
   assert_true(true)
 }
 
 test "log_warn with fields" {
-  log_warn("test warning")
+  Logger::warn("test warning")
   assert_true(true)
 }
 
 test "log_error with fields" {
-  log_error("test error", fields=[("code", "500")])
+  Logger::error("test error", fields=[("code", "500")])
   assert_true(true)
 }
 

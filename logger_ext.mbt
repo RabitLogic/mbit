@@ -4,18 +4,25 @@
 /// ## Usage
 ///
 /// ```
-/// // Configure global logger
-/// set_log_level(Info)
-/// set_log_format(JSONFormat)
+/// // Configure
+/// Logger::set_level(Info)
+/// Logger::set_format(JSONFormat)
 ///
 /// // In middleware / handlers
-/// log_debug("Processing request", [("path", ctx.path())])
-/// log_info("User logged in", [("user_id", "42"), ("ip", ctx.client_ip())])
-/// log_error("Database timeout", [("query", "SELECT ...")])
+/// Logger::debug("Processing request", fields=[("path", ctx.path())])
+/// Logger::info("User logged in", fields=[("user_id", "42"), ("ip", ctx.client_ip())])
+/// Logger::error("Database timeout", fields=[("query", "SELECT ...")])
 ///
 /// // Structured request logging middleware
 /// app.use(structured_logger(StructuredLogConfig::default()))
 /// ```
+
+///|
+/// Logger — the central logging API for mbit.
+///
+/// All logging goes through `moonbit-log` (`leppard/moonbit-log`) and respects
+/// configured log levels and output formats.
+pub(all) struct Logger {}
 
 ///|
 /// Log severity levels — maps to `@leppard/moonbit-log.Level`.
@@ -61,7 +68,7 @@ fn to_log_level(level : LogLevel) -> @leppard/moonbit-log.Level {
 }
 
 ///|
-/// Global logger configuration state.
+/// Internal logger configuration state.
 priv struct LoggerConfig {
   mut level : LogLevel
   mut _format : LogFormat
@@ -78,11 +85,14 @@ let global_config : LoggerConfig = {
   environment: "development",
 }
 
+///| ——————————————————————————————————————————————————————————————————————
+///  Configuration — Logger::set_* / Logger::level
+///| ——————————————————————————————————————————————————————————————————————
+
 ///|
 /// Set the minimum log level.
-pub fn set_log_level(level : LogLevel) -> Unit {
+pub fn Logger::set_level(level : LogLevel) -> Unit {
   global_config.level = level
-  // Also update moonbit-log's global logger level
   let ml_level = to_log_level(level)
   let logger = @leppard/moonbit-log.get_global_logger()
   logger.set_level(ml_level)
@@ -90,7 +100,7 @@ pub fn set_log_level(level : LogLevel) -> Unit {
 
 ///|
 /// Get the current log level.
-pub fn log_level() -> LogLevel {
+pub fn Logger::level() -> LogLevel {
   global_config.level
 }
 
@@ -98,44 +108,48 @@ pub fn log_level() -> LogLevel {
 /// Set the log output format.
 /// - `TextFormat`: human-readable compact format
 /// - `JSONFormat`: JSON lines format
-pub fn set_log_format(format : LogFormat) -> Unit {
+pub fn Logger::set_format(format : LogFormat) -> Unit {
   global_config._format = format
+  let ml_level = to_log_level(global_config.level)
   match format {
-    TextFormat => @leppard/moonbit-log.init_default_console()
+    TextFormat => {
+      let handler = @leppard/moonbit-log.ConsoleHandler::new(ml_level, @leppard/moonbit-log.text_formatter())
+      let hfn = @leppard/moonbit-log.make_handler(
+        fn(e) { handler.log(e) },
+        fn() {},
+        fn() {},
+      )
+      let logger = @leppard/moonbit-log.get_global_logger()
+      logger.clear_handlers()
+      logger.add_handler(hfn)
+    }
     JSONFormat => @leppard/moonbit-log.init_default_json()
   }
 }
 
 ///|
 /// Set the application name for log metadata.
-/// The app name is injected as a field into every log entry.
-pub fn set_log_app_name(name : String) -> Unit {
+/// Injected as a field into every log entry.
+pub fn Logger::set_app_name(name : String) -> Unit {
   global_config.app_name = name
 }
 
 ///|
 /// Set the environment tag for log metadata.
 /// Injected as a field ("env") into every log entry.
-pub fn set_log_environment(env : String) -> Unit {
+pub fn Logger::set_environment(env : String) -> Unit {
   global_config.environment = env
 }
 
 ///|
-/// Enable or disable caller reporting in logs.
-/// (Delegated to moonbit-log's LogEntryBuilder; currently always reports.)
-pub fn set_log_report_caller(_report : Bool) -> Unit {
-  // moonbit-log always captures file/line info in LogEntry
-}
-
-///| ——————————————————————————————————————————————————————————————————————
-///  Core logging functions — delegate to moonbit-log global API
-///| ——————————————————————————————————————————————————————————————————————
-
-///|
 /// Check if the given log level is enabled.
-pub fn is_log_enabled(level : LogLevel) -> Bool {
+pub fn Logger::is_enabled(level : LogLevel) -> Bool {
   level >= global_config.level
 }
+
+///| ——————————————————————————————————————————————————————————————————————
+///  Core logging methods — Logger::debug / info / warn / error / fatal
+///| ——————————————————————————————————————————————————————————————————————
 
 ///|
 /// Build the base fields array with app name and environment.
@@ -154,9 +168,10 @@ fn base_fields() -> Array[(String, String)] {
 /// Log a debug message with optional key-value fields.
 ///
 /// ```
-/// log_debug("Cache miss", [("key", "user:42")])
+/// Logger::debug("Cache miss", fields=[("key", "user:42")])
 /// ```
-pub fn log_debug(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+pub fn Logger::debug(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+  if !Logger::is_enabled(Debug) { return }
   let all_fields = base_fields()
   for f in fields { all_fields.push(f) }
   if all_fields.length() > 0 {
@@ -168,7 +183,8 @@ pub fn log_debug(message : String, fields~ : Array[(String, String)] = []) -> Un
 
 ///|
 /// Log an info message with optional key-value fields.
-pub fn log_info(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+pub fn Logger::info(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+  if !Logger::is_enabled(Info) { return }
   let all_fields = base_fields()
   for f in fields { all_fields.push(f) }
   if all_fields.length() > 0 {
@@ -180,7 +196,8 @@ pub fn log_info(message : String, fields~ : Array[(String, String)] = []) -> Uni
 
 ///|
 /// Log a warning message with optional key-value fields.
-pub fn log_warn(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+pub fn Logger::warn(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+  if !Logger::is_enabled(Warn) { return }
   let all_fields = base_fields()
   for f in fields { all_fields.push(f) }
   if all_fields.length() > 0 {
@@ -192,7 +209,8 @@ pub fn log_warn(message : String, fields~ : Array[(String, String)] = []) -> Uni
 
 ///|
 /// Log an error message with optional key-value fields.
-pub fn log_error(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+pub fn Logger::error(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+  if !Logger::is_enabled(Error) { return }
   let all_fields = base_fields()
   for f in fields { all_fields.push(f) }
   if all_fields.length() > 0 {
@@ -204,7 +222,7 @@ pub fn log_error(message : String, fields~ : Array[(String, String)] = []) -> Un
 
 ///|
 /// Log a fatal message and terminate.
-pub fn log_fatal(message : String, fields~ : Array[(String, String)] = []) -> Unit {
+pub fn Logger::fatal(message : String, fields~ : Array[(String, String)] = []) -> Unit {
   let all_fields = base_fields()
   for f in fields { all_fields.push(f) }
   if all_fields.length() > 0 {
@@ -327,13 +345,16 @@ pub fn structured_logger(config : StructuredLogConfig) -> Handler {
       fields.push(("env", global_config.environment))
     }
 
-    // Build message and log via moonbit-log
+    // Build message and log via Logger API
     let msg = method + " " + path + " -> " + status.to_string()
 
-    let ml_level = if status >= 500 { @leppard/moonbit-log.Level::Error }
-      else if status >= 400 { @leppard/moonbit-log.Level::Warn }
-      else { @leppard/moonbit-log.Level::Info }
-    @leppard/moonbit-log.g_log_with(ml_level, msg, fields)
+    if status >= 500 {
+      Logger::error(msg, fields=fields)
+    } else if status >= 400 {
+      Logger::warn(msg, fields=fields)
+    } else {
+      Logger::info(msg, fields=fields)
+    }
   }
 }
 

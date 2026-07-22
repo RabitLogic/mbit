@@ -347,9 +347,9 @@ test "set_func_map on engine" {
 ///  Shutdown & IRoutes tests
 ///| ——————————————————————————————————————————————————————————————————————
 
-test "engine shutdown returns true" {
+test "engine shutdown returns false when not running" {
   let app = new()
-  assert_true(app.shutdown())
+  assert_false(app.shutdown())
 }
 
 test "engine shutdown with cleanup callback" {
@@ -357,6 +357,14 @@ test "engine shutdown with cleanup callback" {
   let mut cleaned = false
   let _ = app.shutdown(cleanup=fn() { cleaned = true })
   assert_true(cleaned)
+}
+
+test "engine health registers route" {
+  let app = new()
+  app.health()
+  let routes = app.routes()
+  assert_eq(routes.length(), 1)
+  assert_eq(routes[0].path, "/health")
 }
 
 test "engine implements route registration" {
