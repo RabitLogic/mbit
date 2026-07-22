@@ -4,21 +4,28 @@
 > It brings Gin's trie-based router, middleware chain, and context-centric API to MoonBit,
 > reimagined for MoonBit's type system and async model.
 
-A MoonBit web framework.
+A MoonBit web framework — **batteries-included** for production-ready Web development.
 
 [![MoonBit](https://img.shields.io/badge/MoonBit-0.10.4-blue)](https://www.moonbitlang.com/)
-[![Tests](https://img.shields.io/badge/tests-427%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-504%20passed-brightgreen)]()
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)]()
 [![Gin](https://img.shields.io/badge/ported%20from-Gin-brightgreen)](https://github.com/gin-gonic/gin)
 
 ## Features
 
 - **Trie-based router** — `:param` and `*wildcard` matching, route groups, custom 404/405
-- **Middleware** — logger, recovery, CORS, gzip, auth, rate-limit, secure headers, request ID, timing
-- **Rendering** — JSON, XML, YAML, HTML, SSE, streaming, file serving, content negotiation
+- **Middleware** — logger, recovery, CORS (dynamic origin), gzip, auth, rate-limit (token bucket / sliding window), secure headers (CSP/HSTS/CSRF), request ID, timing, metrics
+- **Rendering** — JSON / IndentedJSON / SecureJSON / PureJSON / AsciiJSON / JSONP, XML, YAML, HTML, SSE, streaming, file serving, content negotiation
 - **Binding** — JSON, query, form, header, path parameter binding with `FromJson`
 - **Validation** — declarative field validation (required, min, max, email, URL, custom)
 - **Template** — HTML template rendering with variable substitution
+- **WebSocket** — RFC 6455 upgrade, frame encode/decode, text/binary/close/ping/pong
+- **File Upload** — `FileHeader` metadata, streaming multipart parser, resumable upload (Content-Range), chunked processing with progress
+- **Structured Logging** — log levels (debug/info/warn/error/fatal), JSON / text format, key-value fields, powered by `moonbit-log`
+- **Configuration** — environment variable binding, multi-environment (dev/staging/prod), `ServerConfig`
+- **Security** — CSRF token protection, security headers (CSP, HSTS, X-Frame-Options, X-XSS-Protection), configurable CORS with dynamic origin validation
 - **Static files** — serve single files or entire directories
+- **Metrics** — in-memory request metrics collector (counts, latency, status codes)
 
 ## Relationship to Gin
 
@@ -67,6 +74,15 @@ The core concepts map directly, adapted to MoonBit's type system and async model
 | `engine.Run(":8080")` | `app.run("0.0.0.0:8080")` |
 | `gin.Recovery()` | `recovery()` |
 | `gin.Logger()` | `logger()` |
+| *(no built-in)* | `structured_logger()` — JSON + log levels |
+| *(no built-in)* | `cors()` — CORS with dynamic origin |
+| *(no built-in)* | `rate_limit()` — token bucket + sliding window |
+| *(no built-in)* | `secure()` — CSRF protection |
+| *(no built-in)* | `request_id()` / `timing()` / `body_size_limit()` |
+| *(no built-in)* | `gzip()` — response compression |
+| *(no built-in)* | `websocket_handler()` — WebSocket upgrade |
+| *(no built-in)* | `metrics_middleware()` — request metrics |
+| *(no built-in)* | `Config::from_env()` — config management |
 
 ### Key differences
 
@@ -182,15 +198,17 @@ app.handle_method_not_allowed(false)  // disable 405
 | Middleware | Description |
 |------------|-------------|
 | `logger()` | Logs method, path, status, latency |
+| `structured_logger(config)` | Structured JSON/text logging with log levels + fields |
 | `recovery()` | Catches panics, returns 500 |
-| `cors(config)` | CORS headers |
+| `cors(config)` | CORS headers with dynamic origin validation |
 | `gzip(config)` | Response compression |
 | `request_id()` | `X-Request-Id` header |
 | `timing()` | `X-Response-Time` header |
-| `secure(config)` | Security headers (helmet-like) |
+| `secure(config)` | Security headers (helmet-like) + CSRF protection |
 | `auth()` | Basic auth |
-| `rate_limit(config)` | IP-based rate limiting |
+| `rate_limit(config)` | Rate limiting (token bucket / sliding window / fixed window) |
 | `body_size_limit(bytes)` | Reject large payloads |
+| `metrics_middleware(collector)` | Request metrics collection (counts, latency, status codes) |
 
 ### Using Middleware
 
@@ -216,6 +234,7 @@ app.use(logger())
 ### CORS
 
 ```moonbit
+// Static origins
 app.use(cors(CORSConfig::{
   allow_origins: ["https://example.com"],
   allow_methods: ["GET", "POST"],
@@ -224,6 +243,11 @@ app.use(cors(CORSConfig::{
   max_age: 3600,
   expose_headers: ["Content-Length"],
 }))
+
+// Dynamic origin validation
+app.use(cors(CORSConfig::with_origin_fn(fn(origin) {
+  origin.has_suffix(".trusted.com") || origin == "https://app.example.com"
+})))
 ```
 
 ### Gzip
@@ -235,18 +259,79 @@ app.use(gzip(GzipConfig::{ min_length: 512, level: 6 }))
 ### Rate Limiting
 
 ```moonbit
+// Fixed window (default)
 app.use(rate_limit(RateLimitConfig::{
   max_requests: 50,
   window_secs: 60,
 }))
+
+// Token bucket (smooth rate limiting)
+app.use(rate_limit(RateLimitConfig::token_bucket(
+  RateTokenBucket::{ rate: 10.0, burst: 20 },
+)))
+
+// Per-route rate limiting
+app.use(rate_limit(
+  RateLimitConfig::default().when(fn(ctx) { ctx.path().has_prefix("/api/") })
+))
+
+// Per-user rate limiting
+app.use(rate_limit(
+  RateLimitConfig::default().with_key(fn(ctx) { ctx.param_default("api_key", "unknown") })
+))
 ```
 
 ### Secure Headers
 
 ```moonbit
+// Security headers only
 app.use(secure(SecureConfig::default()))
+
+// With CSRF protection
+app.use(secure(SecureConfig::default().with_csrf()))
 // Sets: X-Frame-Options, X-Content-Type-Options, X-XSS-Protection,
-//       Content-Security-Policy, Referrer-Policy
+//       Content-Security-Policy, Referrer-Policy, HSTS, CSRF token
+```
+
+### WebSocket
+
+```moonbit
+app.get("/ws", [websocket_handler(fn(ws) {
+  ws.send_text("Connected!")
+  loop {
+    match ws.read() {
+      Some(WebSocketMessage::Text(t)) => ws.send_text("Echo: " + t)
+      Some(WebSocketMessage::Close(_, _)) => break
+      _ => ()
+    }
+  }
+})])
+
+// Manual upgrade
+app.get("/ws2", [fn(ctx) {
+  let ws = upgrade_websocket(ctx)
+  match ws {
+    Some(ws) => ws.send_text("Hello via WebSocket!")
+    None => ctx.abort_with_status(400, "WebSocket upgrade failed")
+  }
+}])
+```
+
+### Structured Logging
+
+```moonbit
+// Request logging with structured fields
+app.use(structured_logger(StructuredLogConfig::default()))
+
+// Log with levels and fields anywhere
+log_info("User logged in", fields=[("user_id", "42"), ("ip", ctx.client_ip())])
+log_error("Database timeout", fields=[("query", "SELECT ...")])
+log_debug("Cache miss", fields=[("key", "user:42")])
+
+// Metrics collection
+let metrics = MetricsCollector::new()
+app.use(metrics_middleware(metrics))
+app.get("/metrics", [fn(ctx) { ctx.json(200, metrics.to_json()) }])
 ```
 
 ### Custom Middleware
@@ -539,9 +624,57 @@ async fn main {
 }
 ```
 
-## API Reference
+### File Upload
 
-### Mbit
+```moonbit
+// Single file with metadata
+match ctx.form_file("avatar") {
+  Some(file) => {
+    println("Received: \{file.filename} (\{file.size} bytes)")
+    ctx.save_uploaded_file(file, "./uploads/" + file.filename)
+  }
+  None => ctx.abort_with_status(400, "No file uploaded")
+}
+
+// All multipart fields
+let form = ctx.multipart_form()
+for field_name, file in form {
+  println("\{field_name}: \{file.filename} (\{file.content_type})")
+}
+
+// Resumable upload (supports Content-Range)
+ctx.save_uploaded_file_resumable(file, "./uploads/video.mp4")
+
+// Chunked processing with progress callback
+let mut progress = UploadProgress::new(file.size, 1024 * 1024)
+ctx.save_uploaded_chunked(file, "./large.bin",
+  ChunkedWriteConfig::default(),
+  fn(chunk, i, total) {
+    progress = progress.update(chunk.length().to_int64())
+    println("Progress: \{progress.percentage.to_int()}%")
+    true  // continue
+  })
+```
+
+### Configuration
+
+```moonbit
+// Load from environment variables (APP_PORT, APP_DATABASE_URL, etc.)
+let config = Config::from_env()
+let port = config.get_int("port", default=8080L)
+
+// Strongly-typed server config
+let srv = ServerConfig::from_env()
+app.set_max_multipart_memory(srv.max_upload_size)
+
+// Check environment
+if config.is_production() {
+  set_log_level(Info)
+  set_log_format(JSONFormat)
+}
+```
+
+## API Reference
 
 | Method | Description |
 |--------|-------------|

@@ -88,8 +88,8 @@ fn all_methods() -> Array[Method] {
 
 ///|
 /// Add global middleware (applied to every route).
-pub fn Router::use(self : Router, mw : Handler) -> Unit {
-  self.global_middleware.push(mw)
+pub fn Router::use(self : Router, handler : Handler) -> Unit {
+  self.global_middleware.push(handler)
 }
 
 ///|
@@ -98,14 +98,14 @@ pub fn Router::use_on(
   self : Router,
   meth : Method,
   pattern : String,
-  mw : Handler,
+  handler : Handler,
 ) -> Unit {
   let root = match self.roots.get(meth) {
     Some(n) => n
     None => return
   }
   let segments = parse_segments(pattern)
-  add_middleware_to_node(root, segments, 0, mw)
+  add_middleware_to_node(root, segments, 0, handler)
 }
 
 ///|
@@ -113,30 +113,30 @@ fn add_middleware_to_node(
   node : Node,
   segments : Array[(String, NodeKind)],
   idx : Int,
-  mw : Handler,
+  handler : Handler,
 ) -> Unit {
   if idx >= segments.length() {
-    node.middlewares.push(mw)
+    node.middlewares.push(handler)
     return
   }
   let (seg, kind) = segments[idx]
   match kind {
     Static =>
       match node.children.get(seg) {
-        Some(child) => add_middleware_to_node(child, segments, idx + 1, mw)
+        Some(child) => add_middleware_to_node(child, segments, idx + 1, handler)
         None => ()
       }
     Param =>
       match node.param_child {
-        Some(child) => add_middleware_to_node(child, segments, idx + 1, mw)
+        Some(child) => add_middleware_to_node(child, segments, idx + 1, handler)
         None => ()
       }
     Wildcard =>
       match node.wildcard_child {
-        Some(child) => child.middlewares.push(mw)
+        Some(child) => child.middlewares.push(handler)
         None => ()
       }
-    Root => add_middleware_to_node(node, segments, idx + 1, mw)
+    Root => add_middleware_to_node(node, segments, idx + 1, handler)
   }
 }
 

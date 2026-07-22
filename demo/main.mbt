@@ -3,7 +3,7 @@
 
 ///| ——— Data types for binding ———
 
-struct User { name : String; age : Int } derive(@json.FromJson)
+struct User { name : String } derive(@json.FromJson)
 struct LoginReq { username : String; password : String } derive(@json.FromJson)
 
 ///| ——— Root ———
@@ -88,7 +88,7 @@ async fn h_register(ctx : @RabitLogic/mbit.Context) -> Unit {
   match ctx.body_json() {
     Some(json) => {
       let vals : Map[String,String] = Map([])
-      match json { Json::Object(m) => for k,v in m { match v { Json::String(s)=>vals.set(k,s); Json::Number(n)=>vals.set(k,n.to_string()); _=>() } }; _ => () }
+      match json { Json::Object(m) => for k,v in m { match v { Json::String(s)=>vals.set(k,s); Json::Number(n, ..)=>vals.set(k,n.to_string()); _=>() } }; _ => () }
       let rules = [
         @RabitLogic/mbit.FieldRules::new("username",[@RabitLogic/mbit.Required,@RabitLogic/mbit.Min(3),@RabitLogic/mbit.Max(20)]),
         @RabitLogic/mbit.FieldRules::new("password",[@RabitLogic/mbit.Required,@RabitLogic/mbit.Min(6)]),
@@ -143,7 +143,7 @@ async fn h_negotiate(ctx : @RabitLogic/mbit.Context) -> Unit {
 
 async fn h_store_set(ctx : @RabitLogic/mbit.Context) -> Unit { ctx.set("shared",Json::string("stored-value")); ctx.next() }
 async fn h_store_get(ctx : @RabitLogic/mbit.Context) -> Unit {
-  ctx.json(200,Json::object(@RabitLogic/mbit.h([("value",Json::string(ctx.get_string("shared").or("missing")))])))
+  ctx.json(200,Json::object(@RabitLogic/mbit.h([("value",Json::string(ctx.get_string("shared").unwrap_or("missing")))])))
 }
 
 ///| ——— Files ———

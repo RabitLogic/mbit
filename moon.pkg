@@ -9,4 +9,5 @@ import {
   "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
   "moonbitlang/core/env",
+  "leppard/moonbit-log",
 }

@@ -6,7 +6,7 @@
 ///|
 /// Framework version string.
 pub fn version() -> String {
-  "0.1.0"
+  "0.2.1"
 }
 
 ///|

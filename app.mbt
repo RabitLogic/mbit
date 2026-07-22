@@ -77,8 +77,8 @@ pub fn Mbit::handle(
 ///  Middleware & error handlers
 ///| ——————————————————————————————————————————————————————————————————————
 
-pub fn Mbit::use(self : Mbit, mw : Handler) -> Unit {
-  self.engine.use(mw) |> ignore
+pub fn Mbit::use(self : Mbit, handler : Handler) -> Unit {
+  self.engine.use(handler) |> ignore
 }
 pub fn Mbit::no_route(self : Mbit, handlers : Array[Handler]) -> Unit {
   self.engine.no_route(handlers)

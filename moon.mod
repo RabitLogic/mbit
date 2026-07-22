@@ -1,9 +1,10 @@
 name = "RabitLogic/mbit"
-version = "0.1.1"
+version = "0.2.1"
 
 import {
   "moonbitlang/async@0.20.2",
   "moonbitlang/x@0.4.46",
+  "leppard/moonbit-log@0.1.0",
 }
 
 readme = "README.md"

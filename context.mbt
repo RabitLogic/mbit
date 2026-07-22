@@ -1626,120 +1626,10 @@ pub async fn Context::abort_with_status_json(
   self.json(code, body)
 }
 
-///| ——————————————————————————————————————————————————————————————————————
-///  Multipart form file upload
-///| ——————————————————————————————————————————————————————————————————————
-
 ///|
-/// FormFile returns the content of an uploaded file from a multipart form.
-/// The file is identified by the form field name.
-///
-/// Returns `Some(content)` if the file was found, `None` otherwise.
-pub async fn Context::form_file(
-  self : Context,
-  field_name : String,
-) -> String? {
-  let content_type = self.content_type()
-  if !content_type.has_prefix("multipart/form-data") {
-    return None
-  }
-  // Extract boundary from Content-Type
-  let boundary = match content_type.find("boundary=") {
-    Some(pos) => {
-      let start = pos + "boundary=".length()
-      content_type[start:].to_owned()
-    }
-    None => return None
-  }
-  let body = self.body_string()
-  // Simple multipart parsing: find the field in the body
-  let field_marker = "name=\"" + field_name + "\""
-  match body.find(field_marker) {
-    Some(field_pos) => {
-      // Find the blank line after headers (separates headers from content)
-      let after_headers = match body[field_pos:].find("\r\n\r\n") {
-        Some(pos) => field_pos + pos + 4
-        None =>
-          match body[field_pos:].find("\n\n") {
-            Some(pos) => field_pos + pos + 2
-            None => return None
-          }
-      }
-      // Find the next boundary after the content
-      let boundary_marker = "--" + boundary
-      let rest = body[after_headers:]
-      match rest.find(boundary_marker) {
-        Some(end_pos) => {
-          let content = rest[:end_pos].to_owned()
-          // Remove trailing \r\n
-          let content = if content.has_suffix("\r\n") {
-            content[:content.length() - 2].to_owned()
-          } else if content.has_suffix("\n") {
-            content[:content.length() - 1].to_owned()
-          } else {
-            content
-          }
-          Some(content)
-        }
-        None => None
-      }
-    }
-    None => None
-  }
-}
-
-///|
-/// SaveUploadedFile saves an uploaded file to the specified destination path.
-///
-/// ```
-/// match ctx.form_file("avatar") {
-///   Some(content) => ctx.save_uploaded_file(content, "./uploads/avatar.png")
-///   None => ctx.abort_with_status(400, "No file uploaded")
-/// }
-/// ```
-pub async fn Context::save_uploaded_file(
-  self : Context,
-  content : String,
-  dst : String,
-) -> Unit {
-  try {
-    @fs.write_file(dst, content)
-  } catch {
-    _ => self.add_error("Failed to save file to " + dst)
-  }
-}
-
-///|
-/// GetPostFormFile returns the filename from a multipart form file upload.
-/// Returns the filename extracted from the Content-Disposition header.
-pub async fn Context::get_post_form_file(
-  self : Context,
-  field_name : String,
-) -> String? {
-  let content_type = self.content_type()
-  if !content_type.has_prefix("multipart/form-data") {
-    return None
-  }
-  let body = self.body_string()
-  let field_marker = "name=\"" + field_name + "\""
-  match body.find(field_marker) {
-    Some(pos) => {
-      // Look for filename= in the part headers before the field marker
-      let header_section = body[:pos].to_owned()
-      match header_section.rev_find("filename=\"") {
-        Some(fn_start) => {
-          let after_fn = fn_start + "filename=\"".length()
-          match body[after_fn:].find("\"") {
-            Some(fn_end) => Some(body[after_fn:after_fn + fn_end].to_owned())
-            None => None
-          }
-        }
-        None => None
-      }
-    }
-    None => None
-  }
-}
+/// File upload support has been moved to `upload.mbt`.
+/// See `Context::form_file`, `Context::save_uploaded_file`,
+/// `Context::get_post_form_file`, and `Context::multipart_form` there.
 
 ///|
 /// AsciiJSON serializes JSON with ASCII-only characters (escapes non-ASCII).
@@ -2019,64 +1909,7 @@ pub(all) enum RenderType {
   ProtoBuf
 } derive(Debug, Eq)
 
-///|
-/// MultipartForm returns the full multipart form data as parsed fields.
-/// Returns a map of field name → file content for simple file uploads.
-pub async fn Context::multipart_form(self : Context) -> Map[String, String] {
-  let content_type = self.content_type()
-  if !content_type.has_prefix("multipart/form-data") {
-    return Map([])
-  }
-  let boundary = match content_type.find("boundary=") {
-    Some(pos) => {
-      let start = pos + "boundary=".length()
-      content_type[start:].to_owned()
-    }
-    None => return Map([])
-  }
-  let body = self.body_string()
-  let result : Map[String, String] = Map([])
-  // Parse all parts: find each "name=" field and extract content
-  let boundary_marker = "--" + boundary
-  let mut search_from = 0
-  while search_from < body.length() {
-    match body[search_from:].find("name=\"") {
-      Some(name_start) => {
-        let after_name = search_from + name_start + "name=\"".length()
-        match body[after_name:].find("\"") {
-          Some(name_end) => {
-            let field_name = body[after_name:after_name + name_end].to_owned()
-            // Find content after headers
-            match body[after_name + name_end:].find("\r\n\r\n") {
-              Some(content_start) => {
-                let content_pos = after_name + name_end + content_start + 4
-                let remaining = body[content_pos:]
-                match remaining.find(boundary_marker) {
-                  Some(end) => {
-                    let content = remaining[:end].to_owned()
-                    let content = match content.strip_suffix("\r\n") {
-                      Some(v) => v.to_owned()
-                      None => content
-                    }
-                    result.set(field_name, content)
-                    search_from = content_pos + end + boundary_marker.length()
-                  }
-                  None => break
-                }
-              }
-              None => break
-            }
-          }
-          None => break
-        }
-      }
-      None => break
-    }
-  }
-  result
-}
-
-///|
+///
 /// TOML renders a TOML response (placeholder — returns JSON).
 pub async fn Context::toml(self : Context, code : Int, obj : Json) -> Unit {
   if self.written {

@@ -36,8 +36,8 @@ pub fn Group::new(
 /// Add middleware to this group. Middleware is applied to all routes
 /// registered through this group, in the order added.
 /// Returns the group for method chaining.
-pub fn Group::use(self : Group, mw : Handler) -> Group {
-  self.middlewares.push(mw)
+pub fn Group::use(self : Group, handler : Handler) -> Group {
+  self.middlewares.push(handler)
   self
 }
 
