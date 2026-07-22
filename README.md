@@ -5,7 +5,7 @@
 A MoonBit web framework.
 
 [![MoonBit](https://img.shields.io/badge/MoonBit-0.10.4-blue)](https://www.moonbitlang.com/)
-[![Tests](https://img.shields.io/badge/tests-504%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-505%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)]()
 
 ## Features
@@ -18,9 +18,10 @@ A MoonBit web framework.
 - **Template** — HTML template rendering with variable substitution
 - **WebSocket** — RFC 6455 upgrade, frame encode/decode, text/binary/close/ping/pong
 - **File Upload** — `FileHeader` metadata, streaming multipart parser, resumable upload (Content-Range), chunked processing with progress
-- **Structured Logging** — log levels (debug/info/warn/error/fatal), JSON / text format, key-value fields, powered by `moonbit-log`
+- **Structured Logging** — `Logger::debug/info/warn/error/fatal`, JSON / text format (with timestamp + fields), key-value fields, powered by `moonbit-log`
 - **Configuration** — environment variable binding, multi-environment (dev/staging/prod), `ServerConfig`
 - **Security** — CSRF token protection, security headers (CSP, HSTS, X-Frame-Options, X-XSS-Protection), configurable CORS with dynamic origin validation
+- **Graceful Shutdown** — `shutdown()` closes the HTTP server; built-in `/health` endpoint via `app.health()`
 - **Static files** — serve single files or entire directories
 - **Metrics** — in-memory request metrics collector (counts, latency, status codes)
 
@@ -258,9 +259,16 @@ app.get("/ws2", [fn(ctx) {
 app.use(structured_logger(StructuredLogConfig::default()))
 
 // Log with levels and fields anywhere
-log_info("User logged in", fields=[("user_id", "42"), ("ip", ctx.client_ip())])
-log_error("Database timeout", fields=[("query", "SELECT ...")])
-log_debug("Cache miss", fields=[("key", "user:42")])
+Logger::info("User logged in", fields=[("user_id", "42"), ("ip", ctx.client_ip())])
+Logger::error("Database timeout", fields=[("query", "SELECT ...")])
+Logger::debug("Cache miss", fields=[("key", "user:42")])
+
+// Output (text format):
+// [2026-07-22T10:00:00] [INFO] User logged in app=mbit env=development user_id=42 ip=10.0.0.1
+
+// Configure
+Logger::set_level(Info)
+Logger::set_format(JSONFormat)
 
 // Metrics collection
 let metrics = MetricsCollector::new()
@@ -478,13 +486,17 @@ app.run("0.0.0.0:8080")
 // Default (logs port)
 app.run_default()
 
-// Graceful shutdown
-app.run_with_shutdown(":8080", on_shutdown=fn() {
-  println("Cleaning up...")
-})
+// Built-in health check endpoint
+app.health()  // registers GET /health → {"status":"ok","service":"mbit"}
+
+// Graceful shutdown — call shutdown() from a handler or signal
+app.run_with_shutdown(":8080")
+// Elsewhere: app.shutdown() closes the server
 
 // Trigger shutdown from signal handler
-app.shutdown()
+app.shutdown(cleanup=fn() {
+  println("Cleaning up resources...")
+})
 ```
 
 ### Debug
@@ -603,8 +615,8 @@ app.set_max_multipart_memory(srv.max_upload_size)
 
 // Check environment
 if config.is_production() {
-  set_log_level(Info)
-  set_log_format(JSONFormat)
+  Logger::set_level(Info)
+  Logger::set_format(JSONFormat)
 }
 ```
 
@@ -626,6 +638,7 @@ if config.is_production() {
 | `static_fs(prefix, root)` | Serve directory with wildcard |
 | `set_html_template(name, content)` | Register template |
 | `max_multipart_memory(bytes)` | Set upload limit |
+| `health()` | Register GET /health endpoint |
 | `redirect_trailing_slash(bool)` | Auto-redirect trailing slashes |
 | `handle_method_not_allowed(bool)` | Enable 405 responses |
 | `remove_extra_slash(bool)` | Normalize double slashes |
