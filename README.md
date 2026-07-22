@@ -1,15 +1,12 @@
 # mbit
 
-> **mbit** is a MoonBit web framework, transplanted from Gin.
-> It brings Gin's trie-based router, middleware chain, and context-centric API to MoonBit,
-> reimagined for MoonBit's type system and async model.
+> **mbit** is a fast, lightweight web framework for MoonBit — batteries-included for production-ready Web development.
 
-A MoonBit web framework — **batteries-included** for production-ready Web development.
+A MoonBit web framework.
 
 [![MoonBit](https://img.shields.io/badge/MoonBit-0.10.4-blue)](https://www.moonbitlang.com/)
 [![Tests](https://img.shields.io/badge/tests-504%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)]()
-[![Gin](https://img.shields.io/badge/ported%20from-Gin-brightgreen)](https://github.com/gin-gonic/gin)
 
 ## Features
 
@@ -27,70 +24,7 @@ A MoonBit web framework — **batteries-included** for production-ready Web deve
 - **Static files** — serve single files or entire directories
 - **Metrics** — in-memory request metrics collector (counts, latency, status codes)
 
-## Relationship to Gin
 
-mbit transplants [Gin](https://github.com/gin-gonic/gin) v1.x's architecture and API design into MoonBit.
-The core concepts map directly, adapted to MoonBit's type system and async model.
-
-| Gin (Go) | mbit (MoonBit) |
-|----------|----------------|
-| `gin.Default()` | `default()` |
-| `gin.New()` | `new()` |
-| `gin.Context` | `Context` |
-| `gin.HandlerFunc` | `Handler` = `async (Context) -> Unit` |
-| `gin.H` | `h([])` helper |
-| `gin.RouterGroup` | `Group` |
-| `engine.GET("/", handler)` | `app.get("/", [handler])` |
-| `engine.POST("/", handler)` | `app.post("/", [handler])` |
-| `engine.Any("/", handler)` | `app.any("/", [handler])` |
-| `engine.Handle("GET,POST", "/", h)` | `app.handle([GET, POST], "/", [h])` |
-| `engine.Group("/api")` | `app.group("/api")` |
-| `engine.Use(mw)` | `app.use(mw)` |
-| `engine.NoRoute(h)` | `app.no_route([h])` |
-| `engine.NoMethod(h)` | `app.no_method([h])` |
-| `engine.StaticFile("/f", "./f")` | `app.static_file("/f", "./f")` |
-| `engine.Static("/s", "./d")` | `app.static_("/s", "./d")` |
-| `c.Param("id")` | `ctx.param("id")` |
-| `c.Query("q")` | `ctx.query("q")` |
-| `c.PostForm("f")` | `ctx.post_form("f")` |
-| `c.ShouldBindJSON(&obj)` | `bind_json(ctx)` |
-| `c.ShouldBindQuery(&obj)` | `bind_query(ctx)` |
-| `c.MustBindWith(&obj, binding.JSON)` | `ctx.must_bind_json()` |
-| `c.JSON(200, gin.H{"k":"v"})` | `ctx.json(200, Json::object(h([("k",Json::string("v"))])))` |
-| `c.XML(200, obj)` | `ctx.xml(200, data)` |
-| `c.YAML(200, obj)` | `ctx.yaml(200, data)` |
-| `c.HTML(200, tpl, data)` | `ctx.html(200, html)` |
-| `c.String(200, "msg")` | `ctx.string(200, "msg")` |
-| `c.Redirect(301, "/")` | `ctx.redirect(301, "/")` |
-| `c.SSEvent("ev", "data")` | `ctx.sse("ev", "data")` |
-| `c.Stream(...)` | `ctx.stream(200, "text/plain", writer)` |
-| `c.Data(200, ct, data)` | `ctx.data(200, ct, data)` |
-| `c.File("path")` | `ctx.file("path")` |
-| `c.Set("key", val)` | `ctx.set("key", Json::string(val))` |
-| `c.Get("key")` | `ctx.get("key")` |
-| `c.AbortWithStatus(403)` | `ctx.abort_with_status(403, "msg")` |
-| `c.Next()` | `ctx.next()` |
-| `c.ClientIP()` | `ctx.client_ip()` |
-| `engine.Run(":8080")` | `app.run("0.0.0.0:8080")` |
-| `gin.Recovery()` | `recovery()` |
-| `gin.Logger()` | `logger()` |
-| *(no built-in)* | `structured_logger()` — JSON + log levels |
-| *(no built-in)* | `cors()` — CORS with dynamic origin |
-| *(no built-in)* | `rate_limit()` — token bucket + sliding window |
-| *(no built-in)* | `secure()` — CSRF protection |
-| *(no built-in)* | `request_id()` / `timing()` / `body_size_limit()` |
-| *(no built-in)* | `gzip()` — response compression |
-| *(no built-in)* | `websocket_handler()` — WebSocket upgrade |
-| *(no built-in)* | `metrics_middleware()` — request metrics |
-| *(no built-in)* | `Config::from_env()` — config management |
-
-### Key differences
-
-- **Async handlers**: `async (Context) -> Unit` instead of synchronous `func(*gin.Context)`
-- **Generics over reflection**: Binding uses `FromJson` trait, not `reflect`
-- **Explicit validation**: `FieldRules` replace struct tags like `binding:"required"`
-- **Immutable by default**: `mut` keyword required; `Map([])` for empty maps
-- **Engine is chaining**: Route registration returns `Engine`, chainable with `|> ignore`
 
 ## Quick Start
 
