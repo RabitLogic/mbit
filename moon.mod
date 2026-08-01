@@ -2,8 +2,8 @@ name = "RabitLogic/mbit"
 version = "0.3.0"
 
 import {
-  "moonbitlang/async@0.20.2",
-  "moonbitlang/x@0.4.46",
+  "moonbitlang/async@0.20.3",
+  "moonbitlang/x@0.4.47",
   "leppard/moonbit-log@0.1.0",
 }
 
