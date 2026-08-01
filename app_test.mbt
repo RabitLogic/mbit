@@ -79,8 +79,21 @@ test "Mbit::default" {
   assert_true(true)
 }
 
+test "app singleton" {
+  let _ = Mbit::default().engine()
+  assert_true(true)
+}
+
 test "Mbit::new" {
-  let a = Mbit::new(default())
+  let a = Mbit::new(@core.default())
   a.get("/y", [(_ctx) => ()])
   assert_true(true)
+}
+
+test "version returns string" {
+  assert_true(version().length() > 0)
+}
+
+test "name_and_version" {
+  assert_true(name_and_version().has_prefix("mbit/"))
 }

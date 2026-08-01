@@ -48,13 +48,13 @@ test "BasicAuthConfig" {
 
 ///|
 test "logger returns Handler" {
-  let _ = logger()
+  let _ = @core.logger()
   assert_true(true)
 }
 
 ///|
 test "recovery returns Handler" {
-  let _ = recovery()
+  let _ = @core.recovery()
   assert_true(true)
 }
 
@@ -98,45 +98,45 @@ test "body_size_limit returns Handler" {
 
 ///|
 test "join_strings empty" {
-  assert_eq(join_strings([], ", "), "")
+  assert_eq(@core.join_strings([], ", "), "")
 }
 
 ///|
 test "join_strings single" {
-  assert_eq(join_strings(["a"], ", "), "a")
+  assert_eq(@core.join_strings(["a"], ", "), "a")
 }
 
 ///|
 test "join_strings multiple" {
-  assert_eq(join_strings(["a", "b", "c"], "|"), "a|b|c")
+  assert_eq(@core.join_strings(["a", "b", "c"], "|"), "a|b|c")
 }
 
 ///|
 test "guess_content_type known" {
-  assert_eq(guess_content_type("f.html"), "text/html; charset=utf-8")
-  assert_eq(guess_content_type("f.css"), "text/css; charset=utf-8")
-  assert_eq(guess_content_type("f.js"), "application/javascript; charset=utf-8")
-  assert_eq(guess_content_type("f.png"), "image/png")
+  assert_eq(@core.guess_content_type("f.html"), "text/html; charset=utf-8")
+  assert_eq(@core.guess_content_type("f.css"), "text/css; charset=utf-8")
+  assert_eq(@core.guess_content_type("f.js"), "application/javascript; charset=utf-8")
+  assert_eq(@core.guess_content_type("f.png"), "image/png")
 }
 
 ///|
 test "guess_content_type unknown" {
-  assert_eq(guess_content_type("f.xyz"), "application/octet-stream")
+  assert_eq(@core.guess_content_type("f.xyz"), "application/octet-stream")
 }
 
 ///|
 test "url_decode basic" {
-  assert_eq(url_decode("hello%20world"), "hello world")
+  assert_eq(@core.url_decode("hello%20world"), "hello world")
 }
 
 ///|
 test "url_decode plus" {
-  assert_eq(url_decode("a+b"), "a b")
+  assert_eq(@core.url_decode("a+b"), "a b")
 }
 
 ///|
 test "url_encode basic" {
-  let encoded = url_encode("hello world")
+  let encoded = @core.url_encode("hello world")
   assert_true(encoded.contains("%20"))
 }
 
@@ -250,43 +250,43 @@ test "body_size_limit with large value" {
 ///| ——————————————————————————————————————————————————————————————————————
 
 test "url_decode no encoding" {
-  assert_eq(url_decode("plaintext"), "plaintext")
+  assert_eq(@core.url_decode("plaintext"), "plaintext")
 }
 
 test "url_decode multiple encodings" {
-  let decoded = url_decode("Hello%20World%21")
+  let decoded = @core.url_decode("Hello%20World%21")
   assert_eq(decoded, "Hello World!")
 }
 
 test "url_decode lowercase hex" {
-  assert_eq(url_decode("%3c%3e"), "<>")
+  assert_eq(@core.url_decode("%3c%3e"), "<>")
 }
 
 test "url_decode uppercase hex" {
-  assert_eq(url_decode("%3C%3E"), "<>")
+  assert_eq(@core.url_decode("%3C%3E"), "<>")
 }
 
 test "url_decode percent sign" {
-  assert_eq(url_decode("%25"), "%")
+  assert_eq(@core.url_decode("%25"), "%")
 }
 
 test "url_decode empty" {
-  assert_eq(url_decode(""), "")
+  assert_eq(@core.url_decode(""), "")
 }
 
 test "url_encode alphanumeric unchanged" {
-  let encoded = url_encode("abc123XYZ")
+  let encoded = @core.url_encode("abc123XYZ")
   assert_eq(encoded, "abc123XYZ")
 }
 
 test "url_encode special chars" {
-  let encoded = url_encode("hello world!")
+  let encoded = @core.url_encode("hello world!")
   assert_true(encoded.contains("%20"))
   assert_true(encoded.contains("%21"))
 }
 
 test "url_encode empty string" {
-  assert_eq(url_encode(""), "")
+  assert_eq(@core.url_encode(""), "")
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -294,11 +294,11 @@ test "url_encode empty string" {
 ///| ——————————————————————————————————————————————————————————————————————
 
 test "join_strings with empty separator" {
-  assert_eq(join_strings(["a", "b", "c"], ""), "abc")
+  assert_eq(@core.join_strings(["a", "b", "c"], ""), "abc")
 }
 
 test "join_strings with space separator" {
-  assert_eq(join_strings(["hello", "world"], " "), "hello world")
+  assert_eq(@core.join_strings(["hello", "world"], " "), "hello world")
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -306,31 +306,31 @@ test "join_strings with space separator" {
 ///| ——————————————————————————————————————————————————————————————————————
 
 test "guess_content_type svg" {
-  assert_eq(guess_content_type("icon.svg"), "image/svg+xml")
+  assert_eq(@core.guess_content_type("icon.svg"), "image/svg+xml")
 }
 
 test "guess_content_type ico" {
-  assert_eq(guess_content_type("favicon.ico"), "image/x-icon")
+  assert_eq(@core.guess_content_type("favicon.ico"), "image/x-icon")
 }
 
 test "guess_content_type woff" {
-  assert_eq(guess_content_type("font.woff"), "font/woff")
+  assert_eq(@core.guess_content_type("font.woff"), "font/woff")
 }
 
 test "guess_content_type woff2" {
-  assert_eq(guess_content_type("font.woff2"), "font/woff2")
+  assert_eq(@core.guess_content_type("font.woff2"), "font/woff2")
 }
 
 test "guess_content_type ttf" {
-  assert_eq(guess_content_type("font.ttf"), "font/ttf")
+  assert_eq(@core.guess_content_type("font.ttf"), "font/ttf")
 }
 
 test "guess_content_type xml" {
-  assert_eq(guess_content_type("data.xml"), "application/xml; charset=utf-8")
+  assert_eq(@core.guess_content_type("data.xml"), "application/xml; charset=utf-8")
 }
 
 test "guess_content_type txt" {
-  assert_eq(guess_content_type("readme.txt"), "text/plain; charset=utf-8")
+  assert_eq(@core.guess_content_type("readme.txt"), "text/plain; charset=utf-8")
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -436,5 +436,5 @@ test "secure api returns Handler" {
 ///| ——————————————————————————————————————————————————————————————————————
 
 test "url_decode newline encoding" {
-  assert_eq(url_decode("line1%0Aline2"), "line1\nline2")
+  assert_eq(@core.url_decode("line1%0Aline2"), "line1\nline2")
 }

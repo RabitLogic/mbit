@@ -56,7 +56,7 @@ pub fn GzipConfig::default() -> GzipConfig {
 /// ```
 /// app.use(gzip(GzipConfig::default()))
 /// ```
-pub fn gzip(config : GzipConfig) -> Handler {
+pub fn gzip(config : GzipConfig) -> @core.Handler {
   async fn(ctx) {
     // Check if client accepts gzip
     let accept_encoding = match ctx.header("Accept-Encoding") {

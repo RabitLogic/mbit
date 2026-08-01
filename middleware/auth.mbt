@@ -21,7 +21,7 @@ pub(all) struct BasicAuthConfig {
 ///|
 /// Basic authentication middleware.
 
-pub fn basic_auth(config : BasicAuthConfig) -> Handler {
+pub fn basic_auth(config : BasicAuthConfig) -> @core.Handler {
   async fn(ctx) {
     let auth_header = match ctx.header("Authorization") {
       Some(h) => h
@@ -93,6 +93,6 @@ pub fn basic_auth(config : BasicAuthConfig) -> Handler {
 /// let accounts = Map([("admin", "secret")])
 /// app.use(basic_auth_for_realm(accounts, "My Realm"))
 /// ```
-pub fn basic_auth_for_realm(accounts : Map[String, String], realm : String) -> Handler {
+pub fn basic_auth_for_realm(accounts : Map[String, String], realm : String) -> @core.Handler {
   basic_auth(BasicAuthConfig::{ accounts, realm })
 }

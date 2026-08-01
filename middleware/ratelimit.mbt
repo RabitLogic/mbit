@@ -24,7 +24,7 @@ pub fn RateLimitConfig::default() -> RateLimitConfig {
 
 ///|
 /// Simple in-memory rate limiter based on client IP.
-pub fn rate_limit(config : RateLimitConfig) -> Handler {
+pub fn rate_limit(config : RateLimitConfig) -> @core.Handler {
   let store : Map[String, Array[UInt64]] = Map([])
   let window_ms : UInt64 = config.window_secs.to_uint64() * 1000UL
   async fn(ctx) {

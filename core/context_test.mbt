@@ -89,7 +89,7 @@ test "store keys" {
   assert_eq(ctx.keys().length(), 2)
 }
 
-test "must_get succeeds" {
+async test "must_get succeeds" {
   let ctx = create_test_context("GET", "/test")
   ctx.set("x", Json::string("ok"))
   assert_eq(ctx.must_get("x"), Json::string("ok"))

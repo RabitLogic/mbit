@@ -114,35 +114,6 @@ test "clean_path" {
   assert_eq(clean_path(""), "/")
 }
 
-test "version returns string" {
-  assert_true(version().length() > 0)
-}
-
-test "name_and_version" {
-  assert_true(name_and_version().has_prefix("mbit/"))
-}
-
-test "app singleton" {
-  let _ = Mbit::default().engine()
-  assert_true(true)
-}
-
-test "Mbit::default().get registers route" {
-  let a = Mbit::default()
-  a.get("/gtest", [(_ctx) => ()])
-  assert_true(a.routes().length() >= 1)
-}
-
-test "Mbit::default().use adds middleware" {
-  Mbit::default().use((ctx) => { ctx.next() })
-  assert_true(true)
-}
-
-test "Mbit::default().no_route" {
-  Mbit::default().no_route([(ctx) => { ctx.string(404, "nf") }])
-  assert_true(true)
-}
-
 test "url_encode" {
   let encoded = url_encode("hello world")
   assert_true(encoded.contains("%20"))
@@ -343,20 +314,29 @@ test "set_func_map on engine" {
   assert_true(true)
 }
 
+test "set_html_template global" {
+  @template.set_html_template("test", "{{ .msg }}")
+  let ctx = create_test_context("GET", "/")
+  ignore(ctx)
+  // Just verify no crash
+  assert_true(true)
+}
+
 ///| ——————————————————————————————————————————————————————————————————————
 ///  Shutdown & IRoutes tests
 ///| ——————————————————————————————————————————————————————————————————————
 
-test "engine shutdown returns true" {
+test "shutdown with no running server returns false" {
   let app = new()
-  assert_true(app.shutdown())
+  assert_false(app.shutdown())
 }
 
-test "engine shutdown with cleanup callback" {
+test "shutdown with cleanup callback when no server running" {
   let app = new()
   let mut cleaned = false
   let _ = app.shutdown(cleanup=fn() { cleaned = true })
-  assert_true(cleaned)
+  // cleanup is not invoked because there is no running server to shut down
+  assert_false(cleaned)
 }
 
 test "engine implements route registration" {

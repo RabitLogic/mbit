@@ -1,0 +1,5 @@
+{
+  "import": [
+    "RabitLogic/mbit/core"
+  ]
+}

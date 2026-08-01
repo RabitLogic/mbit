@@ -7,8 +7,46 @@
 A MoonBit web framework.
 
 [![MoonBit](https://img.shields.io/badge/MoonBit-0.10.4-blue)](https://www.moonbitlang.com/)
-[![Tests](https://img.shields.io/badge/tests-427%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-424%20passed-brightgreen)]()
 [![Gin](https://img.shields.io/badge/ported%20from-Gin-brightgreen)](https://github.com/gin-gonic/gin)
+
+## Project Structure
+
+mbit is split into focused sub-packages. Everything is re-exported for your
+convenience through the root `mbit` package (`Mbit` wrapper), while the
+framework internals live in well-separated packages:
+
+```
+mbit/
+├── moon.pkg.json        # root package — Mbit convenience wrapper, version
+├── app.mbt              #   `Mbit` — chainable struct API over `core.Engine`
+├── version.mbt
+├── core/                # the engine core (mirrors Gin's single package)
+│   ├── context.mbt      #   `Context`, `Handler`, `ResponseConn`, `TestConn`
+│   ├── mbit.mbt         #   `Engine` (`new`/`default`), `h`, `url_encode`
+│   ├── router.mbt       #   trie `Router`, `Node`, `RouteInfo`
+│   ├── routergroup.mbt  #   `Group`
+│   ├── binding.mbt      #   `bind_json` / `bind_query` / ... (tied to Context)
+│   ├── validation.mbt   #   `Rule`, `FieldRules`, `validate_map`
+│   ├── errors.mbt       #   `Method`, `status_text`
+│   ├── response_writer.mbt, mode.mbt, utils.mbt, path.mbt, debug.mbt,
+│   ├── logger.mbt       #   core middleware used by `default()`
+│   └── recovery.mbt
+├── middleware/          # optional middleware (depends on `core`)
+│   ├── cors.mbt, gzip.mbt, auth.mbt, ratelimit.mbt, secure.mbt, requestid.mbt
+├── template/            # standalone HTML template store (imported by `core`)
+│   └── template.mbt
+├── fs/                  # standalone static file serving utilities
+│   └── fs.mbt
+├── demo/                # full-feature runnable demo
+└── example/             # (incomplete, not a package yet)
+```
+
+> **Note on the `core` package**: `binding`/`validation`/`logger`/`recovery`
+> live in `core` because MoonBit forbids defining methods on foreign types —
+> the `Context::should_bind_*` / `must_bind_*` family must live alongside
+> `Context` itself, so they ship with the engine (exactly as Gin keeps
+> `Default`, `Logger` and `Recovery` in one package).
 
 ## Features
 
@@ -210,7 +248,7 @@ api.use(rate_limit(RateLimitConfig::{ max_requests: 100, window_secs: 60 }))
 
 ```moonbit
 app.use(logger())
-// Output: [mbit] GET /api/users -> 200 (12ms)
+// Output: 127.0.0.1 [GET] /api/users -> 200 (12ms)
 ```
 
 ### CORS
@@ -469,6 +507,19 @@ app.shutdown()
 ```
 
 ### Debug
+
+In debug mode (`set_mode(Debug)` / `mbit.default()`), the framework prints
+startup and route-registration diagnostics with a full UTC timestamp
+`YYYY-MM-DD HH:MM:SS.mmm UTC` — no `[mbit]` prefix:
+
+```
+2026-08-02 12:34:56.789 UTC  engine created with logger + recovery middleware
+2026-08-02 12:34:56.790 UTC  route GET /
+2026-08-02 12:34:56.790 UTC  route GET /hello/:name
+2026-08-02 12:34:56.791 UTC  listening on http://0.0.0.0:8080
+```
+
+Programmatic route introspection is also available:
 
 ```moonbit
 let routes = app.routes()

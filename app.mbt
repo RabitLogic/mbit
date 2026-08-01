@@ -15,24 +15,24 @@
 ///|
 /// Mbit wraps an Engine providing method-based access.
 pub struct Mbit {
-  engine : Engine
+  engine : @core.Engine
 }
 
 ///|
 /// Create an Mbit with a custom engine.
-pub fn Mbit::new(engine : Engine) -> Mbit {
+pub fn Mbit::new(engine : @core.Engine) -> Mbit {
   { engine, }
 }
 
 ///|
 /// Create an Mbit with default settings (logger + recovery middleware).
 pub fn Mbit::default() -> Mbit {
-  { engine: default() }
+  { engine: @core.default() }
 }
 
 ///|
 /// Expose the underlying Engine for advanced usage.
-pub fn Mbit::engine(self : Mbit) -> Engine {
+pub fn Mbit::engine(self : Mbit) -> @core.Engine {
   self.engine
 }
 
@@ -40,35 +40,35 @@ pub fn Mbit::engine(self : Mbit) -> Engine {
 ///  Route registration
 ///| ——————————————————————————————————————————————————————————————————————
 
-pub fn Mbit::get(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::get(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.get(pattern, handlers) |> ignore
 }
-pub fn Mbit::post(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::post(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.post(pattern, handlers) |> ignore
 }
-pub fn Mbit::put(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::put(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.put(pattern, handlers) |> ignore
 }
-pub fn Mbit::delete(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::delete(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.del(pattern, handlers) |> ignore
 }
-pub fn Mbit::patch(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::patch(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.patch(pattern, handlers) |> ignore
 }
-pub fn Mbit::head(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::head(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.head(pattern, handlers) |> ignore
 }
-pub fn Mbit::options(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::options(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.options(pattern, handlers) |> ignore
 }
-pub fn Mbit::any(self : Mbit, pattern : String, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::any(self : Mbit, pattern : String, handlers : Array[@core.Handler]) -> Unit {
   self.engine.any(pattern, handlers) |> ignore
 }
 pub fn Mbit::handle(
   self : Mbit,
-  methods : Array[Method],
+  methods : Array[@core.Method],
   pattern : String,
-  handlers : Array[Handler],
+  handlers : Array[@core.Handler],
 ) -> Unit {
   self.engine.handle(methods, pattern, handlers) |> ignore
 }
@@ -77,13 +77,13 @@ pub fn Mbit::handle(
 ///  Middleware & error handlers
 ///| ——————————————————————————————————————————————————————————————————————
 
-pub fn Mbit::use(self : Mbit, mw : Handler) -> Unit {
+pub fn Mbit::use(self : Mbit, mw : @core.Handler) -> Unit {
   self.engine.use(mw) |> ignore
 }
-pub fn Mbit::no_route(self : Mbit, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::no_route(self : Mbit, handlers : Array[@core.Handler]) -> Unit {
   self.engine.no_route(handlers)
 }
-pub fn Mbit::no_method(self : Mbit, handlers : Array[Handler]) -> Unit {
+pub fn Mbit::no_method(self : Mbit, handlers : Array[@core.Handler]) -> Unit {
   self.engine.no_method(handlers)
 }
 
@@ -91,7 +91,7 @@ pub fn Mbit::no_method(self : Mbit, handlers : Array[Handler]) -> Unit {
 ///  Route group
 ///| ——————————————————————————————————————————————————————————————————————
 
-pub fn Mbit::group(self : Mbit, prefix : String) -> Group {
+pub fn Mbit::group(self : Mbit, prefix : String) -> @core.Group {
   self.engine.group(prefix)
 }
 
@@ -168,7 +168,7 @@ pub fn Mbit::shutdown(self : Mbit, cleanup~ : () -> Unit = fn() {}) -> Bool {
 ///  Debug
 ///| ——————————————————————————————————————————————————————————————————————
 
-pub fn Mbit::routes(self : Mbit) -> Array[RouteInfo] {
+pub fn Mbit::routes(self : Mbit) -> Array[@core.RouteInfo] {
   self.engine.routes()
 }
 pub fn Mbit::trees(self : Mbit) -> String {

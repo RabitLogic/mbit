@@ -126,6 +126,8 @@ pub(all) struct Context {
   mut query_cache : Map[String, String]?
   /// Full request body — read lazily on first access
   mut body : String?
+  /// Full request body as raw bytes — read lazily on first access
+  mut body_bytes : Bytes?
   /// Post form data — parsed lazily on first access
   mut post_form_cache : Map[String, String]?
 
@@ -173,6 +175,7 @@ pub fn Context::new(
     params: Map([]),
     query_cache: None,
     body: None,
+    body_bytes: None,
     post_form_cache: None,
     handlers,
     index: 0,
@@ -220,8 +223,15 @@ pub fn Context::path(self : Context) -> String {
 
 ///|
 /// A request header value, if present.
+///
+/// Note: the underlying HTTP server lower-cases all request header keys
+/// (`moonbitlang/async/http` parser does `to_lower()`), so lookups fall back
+/// to the lower-cased key to stay correct under real HTTP traffic.
 pub fn Context::header(self : Context, key : String) -> String? {
-  self.req.headers.get(key)
+  match self.req.headers.get(key) {
+    Some(v) => Some(v)
+    None => self.req.headers.get(key.to_lower())
+  }
 }
 
 ///|
@@ -663,12 +673,13 @@ pub fn Context::get_float64(self : Context, key : String) -> Double? {
 }
 
 ///|
-/// MustGet returns the value for the given key if it exists, otherwise panics.
-/// Use this when the value is guaranteed to have been set by middleware.
-pub fn Context::must_get(self : Context, key : String) -> Json {
+/// MustGet returns the value for the given key if it exists, otherwise raises
+/// a catchable `Failure` (recovered to 500 by `recovery()`). Do NOT use
+/// `abort()` here — it is a hard panic that terminates the whole process.
+pub async fn Context::must_get(self : Context, key : String) -> Json {
   match self.store.get(key) {
     Some(v) => v
-    None => abort("Key \{key} does not exist in context store")
+    None => raise(Failure("Key \{key} does not exist in context store"))
   }
 }
 
@@ -800,6 +811,20 @@ pub async fn Context::html(self : Context, code : Int, html : String) -> Unit {
   self.conn.send_response(code, status_text(code), extra_headers=all_headers)
   self.conn.write_body(html)
   self.conn.end_response()
+}
+
+///|
+/// Render an HTML template response using the global template store.
+pub async fn Context::html_template(
+  self : Context,
+  code : Int,
+  name : String,
+  data : Map[String, String],
+) -> Unit {
+  match @template.render_template(name, data) {
+    Some(html) => self.html(code, html)
+    None => self.abort_with_status(500, "Template not found: " + name)
+  }
 }
 
 ///|
@@ -1304,15 +1329,75 @@ pub fn Context::set_headers(self : Context, hdrs : Map[String, String]) -> Unit 
 ///| ——————————————————————————————————————————————————————————————————————
 
 ///|
+/// Read the full request body as raw bytes (lazy, cached).
+/// Unlike `body_string()`, this preserves arbitrary binary content and never
+/// fails on non-UTF-8 payloads (e.g. binary file uploads).
+pub async fn Context::body_bytes(self : Context) -> Bytes {
+  match self.body_bytes {
+    Some(b) => b
+    None => {
+      let b = self.reader.read_all().binary()
+      self.body_bytes = Some(b)
+      b
+    }
+  }
+}
+
+///|
 /// Read the full request body as a string (lazy, cached).
+/// For binary bodies use `body_bytes()`; text decoding of non-UTF-8 payloads
+/// yields an empty string (same as before).
 pub async fn Context::body_string(self : Context) -> String {
   match self.body {
     Some(b) => b
     None => {
-      let s = (self.reader.read_all().text()) catch { _ => "" }
+      let s = try { @encoding/utf8.decode(self.body_bytes().view()) } catch { _ => "" }
       self.body = Some(s)
       s
     }
+  }
+}
+
+///|
+/// Find `pat` in `b` starting at byte offset `from`.
+fn bytes_find_from(b : Bytes, from : Int, pat : Bytes) -> Int? {
+  if from > b.length() {
+    return None
+  }
+  let rest = match b.get_view(start=from, end=b.length()) {
+    Some(v) => v.to_owned()
+    None => return None
+  }
+  match rest.find(pat) {
+    Some(rel) => Some(from + rel)
+    None => None
+  }
+}
+
+///|
+/// Return a copy of `b[start:start+len]`.
+fn bytes_slice(b : Bytes, start : Int, len : Int) -> Bytes {
+  match b.get_view(start=start, end=start + len) {
+    Some(v) => v.to_owned()
+    None => Bytes::new(0)
+  }
+}
+
+///|
+/// Strip a single trailing CRLF or LF from a byte buffer.
+fn bytes_strip_crlf(b : Bytes) -> Bytes {
+  if b.has_suffix(b"\r\n") {
+    match b.get_view(start=0, end=b.length() - 2) {
+      Some(v) => v.to_owned()
+      None => b
+    }
+  } else if b.has_suffix(b"\n") {
+    match b.get_view(start=0, end=b.length() - 1) {
+      Some(v) => v.to_owned()
+      None => b
+    }
+  } else {
+    b
   }
 }
 
@@ -1342,14 +1427,16 @@ pub async fn[T : @json.FromJson] Context::should_bind(self : Context) -> T? {
 }
 
 ///|
-/// Like `should_bind` but aborts with 400 if binding fails.
+/// Like `should_bind` but raises a catchable `Failure` (recovered to 400/500 by
+/// `recovery()`) if binding fails. Deliberately uses `raise(Failure(...))`
+/// instead of `abort()` so a bad request cannot crash the server.
 pub async fn[T : @json.FromJson] Context::must_bind(self : Context) -> T {
   let bound : T? = self.should_bind()
   match bound {
     Some(v) => v
     None => {
       self.abort_with_status(400, "Invalid request body")
-      abort("must_bind failed")
+      raise(Failure("must_bind failed"))
     }
   }
 }
@@ -1402,8 +1489,8 @@ pub async fn[T] Context::should_bind_with(
 }
 
 ///|
-/// MustBindWith binds using a custom binding function, aborting on failure.
-/// See `c.MustBindWith()` equivalent.
+/// MustBindWith binds using a custom binding function, raising a catchable
+/// `Failure` (recovered by `recovery()`) instead of aborting on failure.
 pub async fn[T] Context::must_bind_with(
   self : Context,
   binder : async (Context) -> T?,
@@ -1412,7 +1499,7 @@ pub async fn[T] Context::must_bind_with(
     Some(v) => v
     None => {
       self.abort_with_status(400, "Binding failed")
-      abort("must_bind_with failed")
+      raise(Failure("must_bind_with failed"))
     }
   }
 }
@@ -1638,7 +1725,7 @@ pub async fn Context::abort_with_status_json(
 pub async fn Context::form_file(
   self : Context,
   field_name : String,
-) -> String? {
+) -> Bytes? {
   let content_type = self.content_type()
   if !content_type.has_prefix("multipart/form-data") {
     return None
@@ -1651,35 +1738,26 @@ pub async fn Context::form_file(
     }
     None => return None
   }
-  let body = self.body_string()
-  // Simple multipart parsing: find the field in the body
-  let field_marker = "name=\"" + field_name + "\""
+  // Parse over raw bytes so binary file content is preserved.
+  let body = self.body_bytes()
+  let field_marker = @encoding/utf8.encode("name=\"" + field_name + "\"")
   match body.find(field_marker) {
     Some(field_pos) => {
       // Find the blank line after headers (separates headers from content)
-      let after_headers = match body[field_pos:].find("\r\n\r\n") {
-        Some(pos) => field_pos + pos + 4
+      let after_headers = match bytes_find_from(body, field_pos, b"\r\n\r\n") {
+        Some(pos) => pos + 4
         None =>
-          match body[field_pos:].find("\n\n") {
-            Some(pos) => field_pos + pos + 2
+          match bytes_find_from(body, field_pos, b"\n\n") {
+            Some(pos) => pos + 2
             None => return None
           }
       }
       // Find the next boundary after the content
-      let boundary_marker = "--" + boundary
-      let rest = body[after_headers:]
-      match rest.find(boundary_marker) {
+      let boundary_marker = @encoding/utf8.encode("--" + boundary)
+      match bytes_find_from(body, after_headers, boundary_marker) {
         Some(end_pos) => {
-          let content = rest[:end_pos].to_owned()
-          // Remove trailing \r\n
-          let content = if content.has_suffix("\r\n") {
-            content[:content.length() - 2].to_owned()
-          } else if content.has_suffix("\n") {
-            content[:content.length() - 1].to_owned()
-          } else {
-            content
-          }
-          Some(content)
+          let content = bytes_slice(body, after_headers, end_pos - after_headers)
+          Some(bytes_strip_crlf(content))
         }
         None => None
       }
@@ -1690,6 +1768,7 @@ pub async fn Context::form_file(
 
 ///|
 /// SaveUploadedFile saves an uploaded file to the specified destination path.
+/// Accepts raw `Bytes` so binary files are written verbatim.
 ///
 /// ```
 /// match ctx.form_file("avatar") {
@@ -1699,7 +1778,7 @@ pub async fn Context::form_file(
 /// ```
 pub async fn Context::save_uploaded_file(
   self : Context,
-  content : String,
+  content : Bytes,
   dst : String,
 ) -> Unit {
   try {
@@ -1720,17 +1799,18 @@ pub async fn Context::get_post_form_file(
   if !content_type.has_prefix("multipart/form-data") {
     return None
   }
-  let body = self.body_string()
-  let field_marker = "name=\"" + field_name + "\""
+  let body = self.body_bytes()
+  let field_marker = @encoding/utf8.encode("name=\"" + field_name + "\"")
   match body.find(field_marker) {
     Some(pos) => {
       // Look for filename= in the part headers before the field marker
-      let header_section = body[:pos].to_owned()
-      match header_section.rev_find("filename=\"") {
+      let header_section = bytes_slice(body, 0, pos)
+      match header_section.rev_find(b"filename=\"") {
         Some(fn_start) => {
           let after_fn = fn_start + "filename=\"".length()
-          match body[after_fn:].find("\"") {
-            Some(fn_end) => Some(body[after_fn:after_fn + fn_end].to_owned())
+          match bytes_find_from(body, after_fn, b"\"") {
+            Some(fn_end) =>
+              Some(@encoding/utf8.decode(bytes_slice(body, after_fn, fn_end - after_fn).view()))
             None => None
           }
         }
@@ -2034,32 +2114,29 @@ pub async fn Context::multipart_form(self : Context) -> Map[String, String] {
     }
     None => return Map([])
   }
-  let body = self.body_string()
+  let body = self.body_bytes()
   let result : Map[String, String] = Map([])
-  // Parse all parts: find each "name=" field and extract content
-  let boundary_marker = "--" + boundary
+  // Parse all parts over raw bytes: find each `name="..."` field and extract
+  // its content (binary-safe).
+  let boundary_marker = @encoding/utf8.encode("--" + boundary)
   let mut search_from = 0
   while search_from < body.length() {
-    match body[search_from:].find("name=\"") {
+    match bytes_find_from(body, search_from, b"name=\"") {
       Some(name_start) => {
-        let after_name = search_from + name_start + "name=\"".length()
-        match body[after_name:].find("\"") {
+        let after_name = name_start + "name=\"".length()
+        match bytes_find_from(body, after_name, b"\"") {
           Some(name_end) => {
-            let field_name = body[after_name:after_name + name_end].to_owned()
+            let field_name = @encoding/utf8.decode(bytes_slice(body, after_name, name_end - after_name).view())
             // Find content after headers
-            match body[after_name + name_end:].find("\r\n\r\n") {
+            match bytes_find_from(body, name_end, b"\r\n\r\n") {
               Some(content_start) => {
-                let content_pos = after_name + name_end + content_start + 4
-                let remaining = body[content_pos:]
-                match remaining.find(boundary_marker) {
+                let content_pos = content_start + 4
+                match bytes_find_from(body, content_pos, boundary_marker) {
                   Some(end) => {
-                    let content = remaining[:end].to_owned()
-                    let content = match content.strip_suffix("\r\n") {
-                      Some(v) => v.to_owned()
-                      None => content
-                    }
-                    result.set(field_name, content)
-                    search_from = content_pos + end + boundary_marker.length()
+                    let content = bytes_slice(body, content_pos, end - content_pos)
+                    let content = bytes_strip_crlf(content)
+                    result.set(field_name, @encoding/utf8.decode(content.view()))
+                    search_from = end + boundary_marker.length()
                   }
                   None => break
                 }

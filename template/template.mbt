@@ -153,15 +153,11 @@ pub fn set_html_template(name : String, content : String) -> Unit {
 }
 
 ///|
-/// Render an HTML template response.
-pub async fn Context::html_template(
-  self : Context,
-  code : Int,
+/// Render a template from the global store. Returns the rendered HTML,
+/// or `None` if the named template does not exist.
+pub fn render_template(
   name : String,
   data : Map[String, String],
-) -> Unit {
-  match global_templates.render(name, data) {
-    Some(html) => self.html(code, html)
-    None => self.abort_with_status(500, "Template not found: " + name)
-  }
+) -> String? {
+  global_templates.render(name, data)
 }

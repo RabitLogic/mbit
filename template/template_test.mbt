@@ -44,15 +44,6 @@ test "template store multiple vars" {
 }
 
 ///|
-test "set_html_template global" {
-  set_html_template("test", "{{ .msg }}")
-  let ctx = create_test_context("GET", "/")
-  ignore(ctx)
-  // Just verify no crash
-  assert_true(true)
-}
-
-///|
 async test "load_html_files loads templates" {
   // Test that the function exists and doesn't crash
   load_html_files([])

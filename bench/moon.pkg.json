@@ -3,7 +3,8 @@
     "RabitLogic/mbit/core",
     "RabitLogic/mbit/middleware",
     "moonbitlang/async",
-    "moonbitlang/core/json"
+    "moonbitlang/core/json",
+    "moonbitlang/core/env"
   ],
   "is-main": true
 }

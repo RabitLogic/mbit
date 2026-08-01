@@ -131,6 +131,36 @@ pub(all) struct Engine {
 }
 
 ///|
+/// Runtime control state shared between `Engine::run()` (the server loop) and
+/// `Engine::shutdown()`. A single process runs at most one server, so a module
+/// global is sufficient. Used to implement graceful shutdown: stop accepting,
+/// drain in-flight requests, then close idle keep-alive connections.
+pub(all) struct ServerControl {
+  /// Set by `shutdown()` to stop the accept loop
+  mut shutting_down : Bool
+  /// Number of requests currently being dispatched
+  mut active_requests : Int
+  /// Connections currently open (for closing idle ones during drain)
+  mut open_connections : Array[@http.ServerConnection]
+  /// Connection tasks, cancelled during drain to interrupt blocked reads
+  mut open_tasks : Array[@async.Task[Unit]]
+  /// Signaled whenever `active_requests` drops to zero
+  drain_cond : @cond_var.Cond
+  /// The running server (if any), for `shutdown()` to close the listener
+  mut server : @http.Server?
+}
+
+///|
+let server_control : ServerControl = {
+  shutting_down: false,
+  active_requests: 0,
+  open_connections: [],
+  open_tasks: [],
+  drain_cond: @cond_var.Cond(),
+  server: None,
+}
+
+///|
 /// h is a shortcut for building a `Map[String, Json]` — convenient for
 /// JSON responses.
 ///
@@ -301,7 +331,7 @@ pub fn Engine::with_options(
 pub fn Engine::set_func_map(self : Engine, funcs : Map[String, String]) -> Unit {
   let _ = self
   for k, v in funcs {
-    set_html_template("__func__" + k, v)
+    @template.set_html_template("__func__" + k, v)
   }
 }
 
@@ -510,7 +540,7 @@ pub fn Engine::no_method(self : Engine, handlers : Array[Handler]) -> Unit {
 /// Load HTML templates from a glob pattern (e.g., "templates/*.html").
 pub async fn Engine::load_html_glob(self : Engine, pattern : String) -> Unit {
   let _ = self
-  load_html_glob(pattern)
+  @template.load_html_glob(pattern)
 }
 
 ///|
@@ -520,7 +550,7 @@ pub async fn Engine::load_html_files(
   files : Array[String],
 ) -> Unit {
   let _ = self
-  load_html_files(files)
+  @template.load_html_files(files)
 }
 
 ///|
@@ -531,7 +561,7 @@ pub fn Engine::set_html_template(
   content : String,
 ) -> Unit {
   let _ = self
-  set_html_template(name, content)
+  @template.set_html_template(name, content)
 }
 
 ///|
@@ -542,7 +572,7 @@ pub fn Engine::set_template_delims(
   right : String,
 ) -> Unit {
   let _ = self
-  set_template_delims(left, right)
+  @template.set_template_delims(left, right)
 }
 
 ///| ——————————————————————————————————————————————————————————————————————
@@ -651,18 +681,18 @@ pub fn Engine::static_fs(
 /// ```
 /// app.run("127.0.0.1:3000")
 /// ```
-pub async fn Engine::run(self : Engine, addr : String) -> Unit {
-  let sock_addr = @socket.Addr::parse(addr) catch {
-    _ => @socket.Addr::new(0, 8080)
-  }
-  let router = self.router
-  let redirect_slash = self.redirect_trailing_slash
-  let fix_path = self.redirect_fixed_path
-  let remove_slash = self.remove_extra_slash
-  debug_print_listen("http://" + addr)
-  let server = @http.Server(sock_addr, reuse_addr=true)
-  server.run_forever(
-    async fn(request, reader, conn) {
+///|
+/// Handle a single HTTP request: applies URL normalisation then dispatches to
+/// the router, with a JSON 404 fallback.
+async fn dispatch_http_request(
+  router : Router,
+  request : @http.Request,
+  reader : &@io.Reader,
+  conn : @http.ServerConnection,
+  redirect_slash : Bool,
+  fix_path : Bool,
+  remove_slash : Bool,
+) -> Unit {
       let mut req_path = request.path
 
       // Apply remove_extra_slash
@@ -745,9 +775,76 @@ pub async fn Engine::run(self : Engine, addr : String) -> Unit {
         conn.write_string(body.stringify())
         conn.end_response()
       }
-    },
-    allow_failure=true,
-  )
+}
+
+///|
+/// Start the HTTP server on `addr` with graceful shutdown support.
+/// This is a blocking call — it runs until `shutdown()` is invoked (or the
+/// process is killed). On shutdown it stops accepting new connections, waits
+/// for in-flight requests to complete, then closes idle keep-alive
+/// connections before returning.
+pub async fn Engine::run(self : Engine, addr : String) -> Unit {
+  let sock_addr = @socket.Addr::parse(addr) catch {
+    _ => @socket.Addr::new(0, 8080)
+  }
+  let router = self.router
+  let redirect_slash = self.redirect_trailing_slash
+  let fix_path = self.redirect_fixed_path
+  let remove_slash = self.remove_extra_slash
+  debug_print_listen("http://" + addr)
+  let server = @http.Server(sock_addr, reuse_addr=true)
+  server_control.server = Some(server)
+  server_control.shutting_down = false
+  server_control.active_requests = 0
+  server_control.open_connections = []
+  server_control.open_tasks = []
+  @async.with_task_group() <| group => {
+    group.spawn_bg() <| () => {
+      // Accept loop: poll for new connections with a short timeout so the
+      // loop can observe a shutdown request. (Closing the listener does NOT
+      // unblock a suspended `accept()` in this async runtime, so we poll.)
+      while !server_control.shutting_down {
+        let accepted = @async.with_timeout_opt(100, fn() { server.accept() })
+        match accepted {
+          None => ()
+          Some((conn, _addr)) => {
+            server_control.open_connections.push(conn)
+            server_control.open_tasks.push(group.spawn(allow_failure=true) <| () => {
+              defer conn.close()
+              try {
+                for ;; {
+                  let request = conn.read_request()
+                  server_control.active_requests = server_control.active_requests + 1
+                  dispatch_http_request(router, request, conn, conn, redirect_slash, fix_path, remove_slash)
+                  server_control.active_requests = server_control.active_requests - 1
+                  if server_control.active_requests == 0 {
+                    server_control.drain_cond.broadcast()
+                  }
+                }
+              } catch {
+                _ => ()
+              }
+            })
+          }
+        }
+      }
+      // Accept loop ended (shutdown requested): drain in-flight requests.
+      while server_control.active_requests > 0 {
+        server_control.drain_cond.wait()
+      }
+      // No active requests left: cancel connection tasks (interrupting their
+      // blocked `read_request`) and close remaining idle connections.
+      for t in server_control.open_tasks {
+        t.cancel()
+      }
+      for c in server_control.open_connections {
+        c.close()
+      }
+      server_control.open_tasks = []
+      server_control.open_connections = []
+    }
+  }
+  server_control.server = None
 }
 
 ///|
@@ -807,6 +904,8 @@ pub async fn Engine::run_with_shutdown(
 
 ///|
 /// Shutdown initiates a graceful shutdown of the server.
+/// Stops accepting new connections, waits for in-flight requests to complete,
+/// then closes idle keep-alive connections. `run()` returns afterwards.
 /// This can be called from a signal handler or health check endpoint.
 ///
 /// Returns `true` if the server was running and is now shutting down.
@@ -822,12 +921,18 @@ pub fn Engine::shutdown(
   cleanup~ : () -> Unit = fn() {  },
 ) -> Bool {
   let _ = self
-  debug_print("Initiating graceful shutdown")
-  cleanup()
-  // The actual shutdown logic depends on the server implementation.
-  // For Server, we rely on the connection handler checking a
-  // shutdown flag and the server's natural completion.
-  true
+  match server_control.server {
+    Some(server) => {
+      debug_print("Initiating graceful shutdown")
+      server_control.shutting_down = true
+      // Closing the listener makes the accept loop in `run()` break and then
+      // drain in-flight requests before closing idle connections.
+      server.close()
+      cleanup()
+      true
+    }
+    None => false
+  }
 }
 
 ///| ——————————————————————————————————————————————————————————————————————

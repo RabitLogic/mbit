@@ -1,0 +1,7 @@
+{
+  "import": [
+    "RabitLogic/mbit/core",
+    "moonbitlang/async",
+    { "path": "moonbitlang/async/fs", "alias": "afs" }
+  ]
+}

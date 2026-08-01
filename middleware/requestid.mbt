@@ -7,7 +7,7 @@
 /// Request ID middleware — generates a unique ID per request and adds it
 /// to the response header.
 
-pub fn request_id() -> Handler {
+pub fn request_id() -> @core.Handler {
   async fn(ctx) {
     let id = @env.now().to_string()
     ctx.set_header("X-Request-Id", id)
@@ -18,7 +18,7 @@ pub fn request_id() -> Handler {
 
 ///|
 /// Timing middleware — adds an `X-Response-Time` header with the request latency.
-pub fn timing() -> Handler {
+pub fn timing() -> @core.Handler {
   async fn(ctx) {
     let start = @env.now()
     ctx.next()
@@ -34,7 +34,7 @@ pub fn timing() -> Handler {
 /// ```
 /// app.use(body_size_limit(1024 * 1024))  // 1 MB
 /// ```
-pub fn body_size_limit(max_bytes : Int64) -> Handler {
+pub fn body_size_limit(max_bytes : Int64) -> @core.Handler {
   async fn(ctx) {
     match ctx.header("Content-Length") {
       Some(cl) =>

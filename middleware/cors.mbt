@@ -35,7 +35,7 @@ pub fn CORSConfig::default() -> CORSConfig {
 
 ///|
 /// CORS middleware with custom configuration.
-pub fn cors(config : CORSConfig) -> Handler {
+pub fn cors(config : CORSConfig) -> @core.Handler {
   async fn(ctx) {
     // Set CORS headers
     let origin = match ctx.header("Origin") {
@@ -54,15 +54,15 @@ pub fn cors(config : CORSConfig) -> Handler {
     }
     ctx.set_header(
       "Access-Control-Allow-Methods",
-      join_strings(config.allow_methods, ", "),
+      @core.join_strings(config.allow_methods, ", "),
     )
     ctx.set_header(
       "Access-Control-Allow-Headers",
-      join_strings(config.allow_headers, ", "),
+      @core.join_strings(config.allow_headers, ", "),
     )
     ctx.set_header(
       "Access-Control-Expose-Headers",
-      join_strings(config.expose_headers, ", "),
+      @core.join_strings(config.expose_headers, ", "),
     )
     if config.allow_credentials {
       ctx.set_header("Access-Control-Allow-Credentials", "true")

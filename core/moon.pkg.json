@@ -1,0 +1,14 @@
+{
+  "import": [
+    "RabitLogic/mbit/template",
+    "moonbitlang/async",
+    "moonbitlang/async/http",
+    "moonbitlang/async/io",
+    "moonbitlang/async/fs",
+    "moonbitlang/async/socket",
+    "moonbitlang/async/cond_var",
+    "moonbitlang/core/json",
+    "moonbitlang/core/string",
+    "moonbitlang/core/env"
+  ]
+}
