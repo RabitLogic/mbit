@@ -116,7 +116,15 @@ async fn main {
   app.get("/panic", [h_panic]) |> ignore
   app.get("/slow", [h_slow]) |> ignore
   app.get("/api/limited", [
-    @middleware.rate_limit(@middleware.RateLimitConfig::{ max_requests: 20, window_secs: 10 }),
+    @middleware.rate_limit(@middleware.RateLimitConfig::{
+      max_requests: 20,
+      window_secs: 10,
+      strategy: @middleware.FixedWindow,
+      token_bucket: { rate: 20.0, burst: 20 },
+      key_fn: fn(ctx) { ctx.client_ip() },
+      condition: fn(_) { true },
+      include_headers: true,
+    }),
     h_limited,
   ]) |> ignore
   app.get("/shutdown", [h_shutdown]) |> ignore

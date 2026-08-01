@@ -9,6 +9,7 @@
     "moonbitlang/async/cond_var",
     "moonbitlang/core/json",
     "moonbitlang/core/string",
-    "moonbitlang/core/env"
+    "moonbitlang/core/env",
+    "leppard/moonbit-log"
   ]
 }

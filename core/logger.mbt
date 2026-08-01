@@ -1,7 +1,7 @@
 ///|
-/// Logger middleware — logs each request with method, path, status, and latency.
-///
-/// See `logger.go` equivalent.
+/// Logger middleware — logs each request with method, path, status, and latency
+/// via the structured logging system (`moonbit-log`), respecting configured
+/// log levels and formats. 5xx -> error, 4xx -> warn, otherwise info.
 ///
 /// Usage:
 /// ```
@@ -19,6 +19,19 @@ pub fn logger() -> Handler {
     let meth = ctx.http_method()
     let path = ctx.path()
     let client_ip = ctx.client_ip()
-    println("\{client_ip} [\{meth}] \{path} -> \{status} (\{elapsed}ms)")
+    let fields = [
+      ("method", meth),
+      ("path", path),
+      ("status", status.to_string()),
+      ("latency_ms", elapsed.to_string()),
+      ("client_ip", client_ip),
+    ]
+    if status >= 500 {
+      Logger::error(meth + " " + path, fields=fields)
+    } else if status >= 400 {
+      Logger::warn(meth + " " + path, fields=fields)
+    } else {
+      Logger::info(meth + " " + path, fields=fields)
+    }
   }
 }

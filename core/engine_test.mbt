@@ -339,6 +339,14 @@ test "shutdown with cleanup callback when no server running" {
   assert_false(cleaned)
 }
 
+test "engine health registers route" {
+  let app = new()
+  app.health()
+  let routes = app.routes()
+  assert_eq(routes.length(), 1)
+  assert_eq(routes[0].path, "/health")
+}
+
 test "engine implements route registration" {
   let app = new()
   // Verify Engine has all route registration methods

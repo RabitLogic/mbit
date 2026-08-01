@@ -51,12 +51,16 @@ mbit/
 ## Features
 
 - **Trie-based router** — `:param` and `*wildcard` matching, route groups, custom 404/405
-- **Middleware** — logger, recovery, CORS, gzip, auth, rate-limit, secure headers, request ID, timing
+- **Middleware** — logger, recovery, CORS, gzip, auth, rate-limit (fixed window / sliding window / token bucket, per-route & per-key), secure headers, request ID, timing
 - **Rendering** — JSON, XML, YAML, HTML, SSE, streaming, file serving, content negotiation
 - **Binding** — JSON, query, form, header, path parameter binding with `FromJson`
 - **Validation** — declarative field validation (required, min, max, email, URL, custom)
 - **Template** — HTML template rendering with variable substitution
 - **Static files** — serve single files or entire directories
+- **Structured logging** — `Logger` with levels/formats/fields (powered by `moonbit-log`), `structured_logger()` middleware, `metrics_middleware()` collector
+- **Configuration** — multi-environment config, env-var binding, validation, hot-reload hooks (`Config`, `ServerConfig`, `AppEnvironment`)
+- **WebSocket** — upgrade detection, frame encode/decode, and message handling (`websocket_handler(fn(ws) { ... })`)
+- **Health endpoint** — built-in `/health` probe (`app.health()`) for load balancers / containers
 
 ## Relationship to Gin
 
@@ -219,16 +223,35 @@ app.handle_method_not_allowed(false)  // disable 405
 
 | Middleware | Description |
 |------------|-------------|
-| `logger()` | Logs method, path, status, latency |
+| `logger()` | Logs method, path, status, latency (via structured `Logger`) |
 | `recovery()` | Catches panics, returns 500 |
 | `cors(config)` | CORS headers |
 | `gzip(config)` | Response compression |
 | `request_id()` | `X-Request-Id` header |
 | `timing()` | `X-Response-Time` header |
-| `secure(config)` | Security headers (helmet-like) |
+| `secure(config)` | Security headers (helmet-like), CSRF option |
 | `auth()` | Basic auth |
-| `rate_limit(config)` | IP-based rate limiting |
+| `rate_limit(config)` | Rate limiting — fixed window / sliding window / token bucket, per-route & per-key |
 | `body_size_limit(bytes)` | Reject large payloads |
+| `structured_logger(config)` | JSON structured request log (fields, levels) |
+| `metrics_middleware(collector)` | In-memory request metrics collector |
+
+### Rate limiting strategies
+
+```moonbit
+// Fixed window (simple, default)
+app.use(rate_limit(RateLimitConfig::default()))
+
+// Token bucket (smooth rate with burst)
+app.use(rate_limit(RateLimitConfig::token_bucket(
+  RateTokenBucket::{ rate: 10.0, burst: 20 },
+)))
+
+// Per-route or per-user keying
+app.use(rate_limit(
+  RateLimitConfig::default().with_key(fn(ctx) { ctx.client_ip() }),
+))
+```
 
 ### Using Middleware
 
@@ -303,6 +326,59 @@ fn auth_middleware() -> Handler {
 }
 
 app.use(auth_middleware())
+```
+
+## Configuration
+
+Multi-environment config with env-var binding (`APP_` prefix by default):
+
+```moonbit
+let cfg = Config::from_env()
+let port = cfg.get_int("PORT", default=8080)
+let db_url = cfg.get_string("DATABASE_URL", default="")
+cfg.environment()            // AppEnvironment::Development / Staging / Production
+
+// Strongly-typed server config
+let srv = ServerConfig::from_env()
+app.set_max_multipart_memory(srv.max_upload_size)
+```
+
+## Structured Logging
+
+Powered by `moonbit-log`, with levels, formats and fields:
+
+```moonbit
+Logger::set_level(Info)
+Logger::set_format(JSONFormat)
+Logger::set_app_name("my-service")
+Logger::info("User logged in", fields=[("user_id", "42")])
+
+// Per-request JSON logging middleware
+app.use(structured_logger(StructuredLogConfig::default()))
+
+// In-memory metrics collector
+let m = MetricsCollector::new()
+app.use(metrics_middleware(m))
+```
+
+## WebSocket
+
+Upgrade detection, frame encode/decode and message handling:
+
+```moonbit
+app.get("/ws", [websocket_handler(fn(ws) {
+  ws.send_text("Connected!")
+  match ws.read_message() {
+    Some(msg) => ws.send_text("Echo: " + msg.to_string())
+    None => ()
+  }
+})])
+```
+
+## Health Endpoint
+
+```moonbit
+app.health()  // registers GET /health -> 200 {"status":"ok","service":"mbit"}
 ```
 
 ## Context

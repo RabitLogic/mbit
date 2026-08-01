@@ -87,6 +87,12 @@ pub fn Mbit::no_method(self : Mbit, handlers : Array[@core.Handler]) -> Unit {
   self.engine.no_method(handlers)
 }
 
+///|
+/// Register a built-in `/health` endpoint (load balancer / probe checks).
+pub fn Mbit::health(self : Mbit) -> Unit {
+  self.engine.health()
+}
+
 ///| ——————————————————————————————————————————————————————————————————————
 ///  Route group
 ///| ——————————————————————————————————————————————————————————————————————

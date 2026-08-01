@@ -532,6 +532,24 @@ pub fn Engine::no_method(self : Engine, handlers : Array[Handler]) -> Unit {
   self.router.no_method(handlers)
 }
 
+///|
+/// Register a built-in `/health` endpoint that returns 200 OK with JSON status.
+/// Useful for load balancer health checks, container probes, and monitoring.
+///
+/// ```
+/// app.health()
+/// ```
+pub fn Engine::health(self : Engine) -> Unit {
+  self.router.get("/health", [
+    async fn(ctx) {
+      ctx.json(200, Json::object({
+        "status": Json::string("ok"),
+        "service": Json::string("mbit"),
+      }))
+    },
+  ])
+}
+
 ///| ——————————————————————————————————————————————————————————————————————
 ///  HTML Template rendering (HTML template loading and configuration)
 ///| ——————————————————————————————————————————————————————————————————————
